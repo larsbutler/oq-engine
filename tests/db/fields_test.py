@@ -76,6 +76,25 @@ class FloatArrayFieldTestCase(unittest.TestCase):
 
         self.assertEqual(expected, actual)
 
+    def test_to_python(self):
+        expected = [1.1, 2.2, 3.3, 4.4]
+
+
+        input_str = '1.1  2.2, 3.3,4.4'
+        faf = fields.FloatArrayField()
+        actual = faf.to_python(input_str)
+
+        self.assertEqual(expected, actual)
+
+    def test_to_python_empty_str(self):
+        expected = []
+
+        input_str = ''
+        faf = fields.FloatArrayField()
+        actual = faf.to_python(input_str)
+
+        self.assertEqual(expected, actual)
+
 
 class CharArrayFieldTestCase(unittest.TestCase):
     """Tests for the custom :py:class:`openquake.db.models.CharArrayField`

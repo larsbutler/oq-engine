@@ -117,14 +117,33 @@ class FloatArrayField(djm.Field):
         # It could also be a string list, each value separated by
         # comma/whitespace.
         if isinstance(value, str):
-            if len(value) == 0:
-                # It's an empty string list
-                value = []
-            else:
-                # try to coerce the string to a list of floats
-                value = [float(x) for x in ARRAY_RE.split(value)]
-                # If there's an exception here, just let it be raised.
+            value = self._float_list_from_str(value)
         return "{" + ', '.join(str(v) for v in value) + "}"
+
+    def to_python(self, value):
+        """
+        If the value is specified as a `str`, try to coerce it into a list of
+        floats.
+        """
+        if value is None:
+            return None
+
+        if isinstance(value, str):
+            value = self._float_list_from_str(value)
+
+        return value
+
+    @staticmethod
+    def _float_list_from_str(value):
+        """
+        Try to parse a float list from a given string, with values separated by
+        whitespace and/or commas.
+        """
+        if len(value) == 0:
+            # It's an empty string list
+            return []
+        else:
+            return [float(x) for x in ARRAY_RE.split(value)]
 
     def formfield(self, **kwargs):
         """Specify a custom form field type so forms know how to handle fields
