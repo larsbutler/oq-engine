@@ -473,3 +473,21 @@ class SignalTestCase(unittest.TestCase):
                 # send the signal:
                 general.signal_task_complete(job_id, num_sources)
                 conn.drain_events()
+
+
+class SplitImtStrTestCase(unittest.TestCase):
+    """
+    Tests for :func:`openquake.calculators.hazard.general.split_imt_str`.
+    """
+
+    def test_split_imt_str(self):
+        # PGA
+        self.assertEqual(
+            ('PGA', None, None),
+            general.split_imt_str('PGA'))
+
+    def test_split_imt_str_sa(self):
+        # SA(0.025)
+        self.assertEqual(
+            ('SA', 0.025, general.DEFAULT_SA_DAMPING),
+            general.split_imt_str('SA(0.025)'))

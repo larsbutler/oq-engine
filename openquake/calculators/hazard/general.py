@@ -695,6 +695,32 @@ def imt_to_nhlib(imt):
         return imt_class()
 
 
+def split_imt_str(imt):
+    """
+    Given the string representation of an IMT, split it into 3 pieces of data:
+
+    * imt
+    * sa_period (only relevant for 'SA')
+    * sa_damping (only relelvant for 'SA'; also currently hard-code to a
+      default)
+
+    :returns:
+        A triple of (imt, sa_period, sa_damping). If the IMT is not 'SA',
+        sa_period and sa_damping will be `None`.
+    """
+    sa_period = None
+    sa_damping = None
+    im_type = imt
+
+    if 'SA' in imt:
+        match = re.match(r'^SA\(([^)]+?)\)$', imt)
+        sa_period = float(match.group(1))
+        sa_damping = DEFAULT_SA_DAMPING
+        im_type = 'SA'
+
+    return im_type, sa_period, sa_damping
+
+
 def signal_task_complete(job_id, num_sources):
     """
     Send a signal back through a dedicated queue to the 'control node' to
