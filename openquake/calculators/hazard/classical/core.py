@@ -393,15 +393,22 @@ class ClassicalHazardCalculator(haz_general.BaseHazardCalculatorNext):
                     sa_damping=sa_damping,
                     statistics='mean')
 
-                for point in all_points:
-                    # all hazard curves for this point and imt
-                    mean_curve = compute_mean_curve_for_point(
-                        point, im_type, sa_period, sa_damping, self.job)
+                curves_gen = curves_weights_gen(im_type, sa_period, sa_damping, self.job)
+
+                for data in curves_gen:
+                    # each iteration is all curves for one site
+                    curves_poes = []
+                    curves_weights = []
+                    for crv in data:
+                        curves_poes.append(crv.poes)
+                        curves_weights.append(crv.hazard_curve.lt_realization.weight)
+
+                    mean_curve = compute_mean_curve(curves_poes, weights=curves_weights)
 
                     curve_inserter.add_entry(
                         hazard_curve_id=haz_curve.id,
                         poes=mean_curve.tolist(),
-                        location=point.wkt2d)
+                        location=crv.location.wkt)
 
             curve_inserter.flush()
 
@@ -452,9 +459,15 @@ class ClassicalHazardCalculator(haz_general.BaseHazardCalculatorNext):
 
                     q_curve_sets[quantile] = haz_curve
 
-                for point in all_points:
-                    curves, weights = curves_weights_for_point(
-                        point, im_type, sa_period, sa_damping, self.job)
+                curves_gen = curves_weights_gen(im_type, sa_period, sa_damping, self.job)
+
+                for data in curves_gen:
+                    # each iteration is all curves for one site
+                    curves_poes = []
+                    curves_weights = []
+                    for crv in data:
+                        curves_poes.append(crv.poes)
+                        curves_weights.append(crv.hazard_curve.lt_realization.weight)
 
                     for quantile in hc.quantile_hazard_curves:
                         # all hazard curves for this point, imt, and quantile
@@ -462,16 +475,14 @@ class ClassicalHazardCalculator(haz_general.BaseHazardCalculatorNext):
                         # TODO: save quantile curve to DB
                         if enumerated:
                             q_curve = compute_weighted_quantile_curve(
-                                curves, weights, quantile)
-                            # TODO: save me
+                                curves_poes, curves_weights, quantile)
                         else:
-                            q_curve = compute_quantile_curve(curves, quantile)
-                            # TODO: save me
+                            q_curve = compute_quantile_curve(curves_poes, quantile)
 
                         curve_inserter.add_entry(
                             hazard_curve_id=q_curve_sets[quantile].id,
                             poes=q_curve.tolist(),
-                            location=point.wkt2d)
+                            location=crv.location.wkt)
 
             curve_inserter.flush()
 
@@ -492,6 +503,29 @@ class ClassicalHazardCalculator(haz_general.BaseHazardCalculatorNext):
             lt_realization__hazard_calculation=hc.id).delete()
         models.SiteData.objects.filter(hazard_calculation=hc.id).delete()
         logs.LOG.debug('< done cleaning up temporary DB data')
+
+
+def curves_weights_gen(imt, sa_period, sa_damping, job):
+    hc = job.hazard_calculation
+    num_rlz = models.LtRealization.objects.filter(
+        hazard_calculation=hc).count()
+    num_points = len(hc.points_to_compute())
+
+    curves_weights = models.HazardCurveData.objects.filter(
+        hazard_curve__output__oq_job=job,
+        hazard_curve__imt=imt,
+        hazard_curve__sa_period=sa_period,
+        hazard_curve__sa_damping=sa_damping,
+        # We only want curves associated with a logic tree
+        # realization
+        hazard_curve__lt_realization__isnull=False).select_related(
+            # fetch the lt_realization info as well, to get the
+            # weights as well in just a single query
+            'hazard_curve__lt_realization').order_by('location')
+
+    for i in xrange(0, len(curves_weights), num_rlz):
+        next_curves = curves_weights[i : i + num_rlz]
+        yield next_curves
 
 
 def curves_weights_for_point(point, imt, sa_period, sa_damping, job):
