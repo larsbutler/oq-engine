@@ -402,10 +402,6 @@ class ClassicalHazardCalculator(haz_general.BaseHazardCalculatorNext):
                         hazard_curve_id=haz_curve.id,
                         poes=mean_curve.tolist(),
                         location=point.wkt2d)
-                    #models.HazardCurveData.objects.create(
-                    #    hazard_curve=haz_curve,
-                    #    poes=mean_curve,
-                    #    location=point.wkt2d)
 
             curve_inserter.flush()
 
@@ -476,10 +472,6 @@ class ClassicalHazardCalculator(haz_general.BaseHazardCalculatorNext):
                             hazard_curve_id=q_curve_sets[quantile].id,
                             poes=q_curve.tolist(),
                             location=point.wkt2d)
-                        #models.HazardCurveData.objects.create(
-                        #    hazard_curve=q_curve_sets[quantile],
-                        #    poes=q_curve,
-                        #    location=point.wkt2d)
 
             curve_inserter.flush()
 
