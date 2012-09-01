@@ -81,6 +81,9 @@ def _export_fn_map():
 
 
 HAZARD_CURVES_FILENAME_FMT = 'hazard-curves-%(hazard_curve_id)s.xml'
+MEAN_HAZARD_CURVES_FILENAME_FMT = 'mean-hazard-curves-%(hazard_curve_id)s.xml'
+QUANTILE_HAZARD_CURVES_FILE_NAME_FMT = (
+    'quantile(%(quantile)s)-hazard-curves-%(hazard_curve_id)s.xml')
 GMF_FILENAME_FMT = 'gmf-%(gmf_coll_id)s.xml'
 SES_FILENAME_FMT = 'ses-%(ses_coll_id)s.xml'
 COMPLETE_LT_SES_FILENAME_FMT = 'complete-lt-ses-%(ses_coll_id)s.xml'
@@ -107,8 +110,6 @@ def export_hazard_curves(output, target_dir):
     hc = models.HazardCurve.objects.get(output=output.id)
     hcd = models.HazardCurveData.objects.filter(hazard_curve=hc.id)
 
-    filename = HAZARD_CURVES_FILENAME_FMT % dict(hazard_curve_id=hc.id)
-    path = os.path.abspath(os.path.join(target_dir, filename))
 
     if hc.lt_realization is not None:
         # If the curves are for a specified logic tree realization,
@@ -116,10 +117,19 @@ def export_hazard_curves(output, target_dir):
         lt_rlz = hc.lt_realization
         smlt_path = LT_PATH_JOIN_TOKEN.join(lt_rlz.sm_lt_path)
         gsimlt_path = LT_PATH_JOIN_TOKEN.join(lt_rlz.gsim_lt_path)
+
+        filename = HAZARD_CURVES_FILENAME_FMT % dict(hazard_curve_id=hc.id)
     else:
         # These curves must be statistical aggregates
         smlt_path = None
         gsimlt_path = None
+
+        if hc.statistics == 'mean':
+            filename = (MEAN_HAZARD_CURVES_FILENAME_FMT
+                        % dict(hazard_curve_id=hc.id))
+        elif hc.statistics == 'quantile':
+            filename = (QUANTILE_HAZARD_CURVES_FILE_NAME_FMT
+                        % dict(hazard_curve_id=hc.id, quantile=hc.quantile))
 
     metadata = {
         'quantile_value': hc.quantile,
@@ -129,6 +139,9 @@ def export_hazard_curves(output, target_dir):
         'sa_period': hc.sa_period,
         'sa_damping': hc.sa_damping,
     }
+
+    path = os.path.abspath(os.path.join(target_dir, filename))
+
     writer = nrml_writers.HazardCurveXMLWriter(
         path, hc.investigation_time, hc.imt, hc.imls, **metadata)
     writer.serialize(hcd)
