@@ -371,33 +371,43 @@ class ClassicalHazardCalculator(haz_general.BaseHazardCalculatorNext):
 
         all_points = hc.points_to_compute()
 
-        for imt, imls in hc.intensity_measure_types_and_levels.iteritems():
-            im_type, sa_period, sa_damping = haz_general.split_imt_str(imt)
+        with transaction.commit_on_success(using='reslt_writer'):
 
-            hco = models.Output.objects.create(
-                owner=hc.owner,
-                oq_job=self.job,
-                display_name='mean-curves-%s' % imt,
-                output_type='hazard_curve')
+            curve_inserter = writer.BulkInserter(models.HazardCurveData)
 
-            haz_curve = models.HazardCurve.objects.create(
-                output=hco,
-                investigation_time=hc.investigation_time,
-                imt=im_type,
-                imls=imls,
-                sa_period=sa_period,
-                sa_damping=sa_damping,
-                statistics='mean')
+            for imt, imls in hc.intensity_measure_types_and_levels.iteritems():
+                im_type, sa_period, sa_damping = haz_general.split_imt_str(imt)
 
-            for point in all_points:
-                # all hazard curves for this point and imt
-                mean_curve = compute_mean_curve_for_point(
-                    point, im_type, sa_period, sa_damping, self.job)
+                hco = models.Output.objects.create(
+                    owner=hc.owner,
+                    oq_job=self.job,
+                    display_name='mean-curves-%s' % imt,
+                    output_type='hazard_curve')
 
-                models.HazardCurveData.objects.create(
-                    hazard_curve=haz_curve,
-                    poes=mean_curve,
-                    location=point.wkt2d)
+                haz_curve = models.HazardCurve.objects.create(
+                    output=hco,
+                    investigation_time=hc.investigation_time,
+                    imt=im_type,
+                    imls=imls,
+                    sa_period=sa_period,
+                    sa_damping=sa_damping,
+                    statistics='mean')
+
+                for point in all_points:
+                    # all hazard curves for this point and imt
+                    mean_curve = compute_mean_curve_for_point(
+                        point, im_type, sa_period, sa_damping, self.job)
+
+                    curve_inserter.add_entry(
+                        hazard_curve_id=haz_curve.id,
+                        poes=mean_curve.tolist(),
+                        location=point.wkt2d)
+                    #models.HazardCurveData.objects.create(
+                    #    hazard_curve=haz_curve,
+                    #    poes=mean_curve,
+                    #    location=point.wkt2d)
+
+            curve_inserter.flush()
 
     def _calculate_quantile_curves(self):
         """
@@ -418,50 +428,60 @@ class ClassicalHazardCalculator(haz_general.BaseHazardCalculatorNext):
 
         all_points = hc.points_to_compute()
 
-        for imt, imls in hc.intensity_measure_types_and_levels.iteritems():
-            im_type, sa_period, sa_damping = haz_general.split_imt_str(imt)
+        with transaction.commit_on_success(using='reslt_writer'):
 
-            q_curve_sets = dict()
-            for quantile in hc.quantile_hazard_curves:
-                hco = models.Output.objects.create(
-                    owner=hc.owner,
-                    oq_job=self.job,
-                    display_name=('quantile(%(quantile)s)-curves-%(imt)s'
-                                  % dict(quantile=quantile, imt=imt)),
-                    output_type='hazard_curve')
+            curve_inserter = writer.BulkInserter(models.HazardCurveData)
 
-                haz_curve = models.HazardCurve.objects.create(
-                    output=hco,
-                    investigation_time=hc.investigation_time,
-                    imt=im_type,
-                    imls=imls,
-                    sa_period=sa_period,
-                    sa_damping=sa_damping,
-                    statistics='quantile',
-                    quantile=quantile)
+            for imt, imls in hc.intensity_measure_types_and_levels.iteritems():
+                im_type, sa_period, sa_damping = haz_general.split_imt_str(imt)
 
-                q_curve_sets[quantile] = haz_curve
-
-            for point in all_points:
-                curves, weights = curves_weights_for_point(
-                    point, im_type, sa_period, sa_damping, self.job)
-
+                q_curve_sets = dict()
                 for quantile in hc.quantile_hazard_curves:
-                    # all hazard curves for this point, imt, and quantile
-                    # TODO: compute quantile curve
-                    # TODO: save quantile curve to DB
-                    if enumerated:
-                        q_curve = compute_weighted_quantile_curve(
-                            curves, weights, quantile)
-                        # TODO: save me
-                    else:
-                        q_curve = compute_quantile_curve(curves, quantile)
-                        # TODO: save me
+                    hco = models.Output.objects.create(
+                        owner=hc.owner,
+                        oq_job=self.job,
+                        display_name=('quantile(%(quantile)s)-curves-%(imt)s'
+                                      % dict(quantile=quantile, imt=imt)),
+                        output_type='hazard_curve')
 
-                    models.HazardCurveData.objects.create(
-                        hazard_curve=q_curve_sets[quantile],
-                        poes=q_curve,
-                        location=point.wkt2d)
+                    haz_curve = models.HazardCurve.objects.create(
+                        output=hco,
+                        investigation_time=hc.investigation_time,
+                        imt=im_type,
+                        imls=imls,
+                        sa_period=sa_period,
+                        sa_damping=sa_damping,
+                        statistics='quantile',
+                        quantile=quantile)
+
+                    q_curve_sets[quantile] = haz_curve
+
+                for point in all_points:
+                    curves, weights = curves_weights_for_point(
+                        point, im_type, sa_period, sa_damping, self.job)
+
+                    for quantile in hc.quantile_hazard_curves:
+                        # all hazard curves for this point, imt, and quantile
+                        # TODO: compute quantile curve
+                        # TODO: save quantile curve to DB
+                        if enumerated:
+                            q_curve = compute_weighted_quantile_curve(
+                                curves, weights, quantile)
+                            # TODO: save me
+                        else:
+                            q_curve = compute_quantile_curve(curves, quantile)
+                            # TODO: save me
+
+                        curve_inserter.add_entry(
+                            hazard_curve_id=q_curve_sets[quantile].id,
+                            poes=q_curve.tolist(),
+                            location=point.wkt2d)
+                        #models.HazardCurveData.objects.create(
+                        #    hazard_curve=q_curve_sets[quantile],
+                        #    poes=q_curve,
+                        #    location=point.wkt2d)
+
+            curve_inserter.flush()
 
     def clean_up(self):
         """
