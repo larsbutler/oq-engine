@@ -25,6 +25,7 @@ import nhlib.imt
 import numpy
 
 from django.db import transaction
+from scipy.stats import mstats
 
 from openquake import logs
 from openquake import writer
@@ -485,6 +486,73 @@ def compute_mean_curve(curves, weights=None):
             raise ValueError('`None` value found in weights: %s' % weights)
 
     return numpy.average(curves, weights=weights, axis=0)
+
+
+# TODO: possible future optimization: compute many quantiles at once
+def compute_quantile_curve(curves, quantile):
+    """
+    Compute the quantile aggregate of a set of curves. This method is used in
+    the case where hazard curves are computed using the Monte-Carlo logic tree
+    sampling approach. In this case, the weights are implicit.
+
+    :param curves:
+        2D array-like collection of hazard curve PoE values. Each element
+        should be a sequence of PoE `float` values. Example::
+
+            [[0.5, 0.4, 0.3], [0.6, 0.59, 0.1]]
+    :param float quantile:
+        The quantile value. We expected a value in the range [0.0, 1.0].
+
+    :returns:
+        A numpy array representing the quantile aggregate of the input
+        ``curves`` and ``quantile``.
+    """
+    return numpy.array(mstats.mquantiles(curves, prob=quantile, axis=0))[0]
+
+
+# TODO: possible future optimization: compute many quantiles as once
+def compute_weighted_quantile_curve(curves, weights, quantile):
+    """
+    Compute the weighted quantile aggregate of a set of curves. This method is
+    used in the case where hazard curves are computed using the logic tree
+    end-branch enumeration approach. In this case, the weights are explicit.
+
+    TODO(LB): Link documentation about weighted quantile calculation. From what
+    I understand, this method is not very obvious. A quick websearch came up
+    with no documentation which was immediately useful.
+
+    :param curves:
+        2D array-like of curve PoEs. Each row represents the PoEs for a single
+        curve
+    :param weights:
+        Array-like of weights, 1 for each input curve.
+    :param quantile:
+        Quantile value to calculate. Should in the range [0.0, 1.0].
+
+    :returns:
+        A numpy array representing the quantile aggregate of the input
+        ``curves`` and ``quantile``, weighting each curve with the specified
+        ``weights``.
+    """
+    # Each curve needs to be associated with a weight:
+    assert len(weights) == len(curves)
+
+    result_curve = []
+
+    np_curves = numpy.array(curves)
+    np_weights = numpy.array(weights)
+
+    for poes in np_curves.transpose():
+        sorted_poe_idxs = numpy.argsort(poes)
+        sorted_weights = np_weights[sorted_poe_idxs]
+        sorted_poes = poes[sorted_poe_idxs]
+
+        # cumulatative sum of weights:
+        cum_weights = numpy.cumsum(sorted_weights)
+
+        result_curve.append(numpy.interp(quantile, cum_weights, sorted_poes))
+
+    return numpy.array(result_curve)
 
 
 def compute_mean_curve_for_point(point, imt, sa_period, sa_damping, job):
