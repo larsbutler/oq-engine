@@ -254,9 +254,9 @@ class ClassicalHazardCalculatorTestCase(unittest.TestCase):
             self.assertTrue(rlz.is_complete)
 
             # get hazard curves for this realization
-            [pga_curves] = models.HazardCurve.objects.filter(
+            pga_curves = models.HazardCurve.objects.get(
                 lt_realization=rlz.id, imt='PGA')
-            [sa_curves] = models.HazardCurve.objects.filter(
+            sa_curves = models.HazardCurve.objects.get(
                 lt_realization=rlz.id, imt='SA', sa_period=0.025)
 
             # In this calculation, we have 120 sites of interest.
@@ -269,6 +269,31 @@ class ClassicalHazardCalculatorTestCase(unittest.TestCase):
                 hazard_curve=sa_curves.id)
             self.assertEqual(120, len(sa_curve_data))
 
+        self.job.status = 'post_processing'
+        self.job.save()
+        self.calc.post_process()
+
+        # Now test for the existence (and quantity) of mean curves:
+        pga_mean_curve_set = models.HazardCurve.objects.get(
+            output__oq_job=self.job,
+            statistics='mean',
+            imt='PGA')
+        pga_mean_curves = models.HazardCurveData.objects.filter(
+            hazard_curve=pga_mean_curve_set)
+        # 1 mean curve per location for this imt
+        self.assertEqual(120, pga_mean_curves.count())
+
+        sa_mean_curve_set = models.HazardCurve.objects.get(
+            output__oq_job=self.job,
+            statistics='mean',
+            imt='SA',
+            sa_period=0.025)
+        sa_mean_curves = models.HazardCurveData.objects.filter(
+            hazard_curve=sa_mean_curve_set)
+        # 1 mean curve per location for this imt
+        self.assertEqual(120, sa_mean_curves.count())
+
+        # Test `clean_up`
         self.job.status = 'clean_up'
         self.job.save()
         self.calc.clean_up()
@@ -360,3 +385,51 @@ class HelpersTestCase(unittest.TestCase):
 
         expected = numpy.array([0.44] * 16).reshape((4, 4))
         numpy.testing.assert_allclose(expected, result)
+
+    def test_compute_mean_curve(self):
+        curves = [
+            [1.0, 0.85, 0.67, 0.3],
+            [0.87, 0.76, 0.59, 0.21],
+            [0.62, 0.41, 0.37, 0.0],
+        ]
+
+        expected_mean_curve = numpy.array([0.83, 0.67333333, 0.54333333, 0.17])
+        numpy.testing.assert_allclose(
+            expected_mean_curve, core.compute_mean_curve(curves))
+
+    def test_compute_mean_curve_weighted(self):
+        curves = [
+            [1.0, 0.85, 0.67, 0.3],
+            [0.87, 0.76, 0.59, 0.21],
+            [0.62, 0.41, 0.37, 0.0],
+        ]
+        weights = [0.5, 0.3, 0.2]
+
+        expected_mean_curve = numpy.array([0.885, 0.735, 0.586, 0.213])
+        numpy.testing.assert_allclose(
+            expected_mean_curve,
+            core.compute_mean_curve(curves, weights=weights))
+
+    def test_compute_mean_curve_weights_None(self):
+        # If all weight values are None, ignore the weights altogether
+        curves = [
+            [1.0, 0.85, 0.67, 0.3],
+            [0.87, 0.76, 0.59, 0.21],
+            [0.62, 0.41, 0.37, 0.0],
+        ]
+        weights = [None, None, None]
+
+        expected_mean_curve = numpy.array([0.83, 0.67333333, 0.54333333, 0.17])
+        numpy.testing.assert_allclose(
+            expected_mean_curve,
+            core.compute_mean_curve(curves, weights=weights))
+
+    def test_compute_mean_curve_invalid_weights(self):
+        curves = [
+            [1.0, 0.85, 0.67, 0.3],
+            [0.87, 0.76, 0.59, 0.21],
+            [0.62, 0.41, 0.37, 0.0],
+        ]
+        weights = [0.6, None, 0.4]
+
+        self.assertRaises(ValueError, core.compute_mean_curve, curves, weights)

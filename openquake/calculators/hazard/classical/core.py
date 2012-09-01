@@ -30,7 +30,6 @@ from openquake import logs
 from openquake import writer
 from openquake.calculators.hazard import general as haz_general
 from openquake.db import models
-from openquake.export import hazard as hexp
 from openquake.input import logictree
 from openquake.utils import stats
 from openquake.utils import tasks as utils_tasks
@@ -343,6 +342,57 @@ class ClassicalHazardCalculator(haz_general.BaseHazardCalculatorNext):
 
                 hc_data_inserter.flush()
 
+    def post_process(self):
+        """
+        If requested by the user, compute mean hazard curves and save them to
+        the database.
+        """
+        hc = self.job.hazard_calculation
+
+        if hc.mean_hazard_curves:
+            self._calculate_mean_curves()
+
+    def _calculate_mean_curves(self):
+        """
+        For each intensity measure type, collect all of the curves for all
+        logic tree realizations and calculate the mean/weighted average for
+        each point of interest in the calculation.
+
+        Resulting mean curve sets will be saved to the database, ready for
+        subsequent export.
+        """
+        hc = self.job.hazard_calculation
+
+        all_points = hc.points_to_compute()
+
+        for imt, imls in hc.intensity_measure_types_and_levels.iteritems():
+            im_type, sa_period, sa_damping = haz_general.split_imt_str(imt)
+
+            hco = models.Output.objects.create(
+                owner=hc.owner,
+                oq_job=self.job,
+                display_name='mean-curves-%s' % imt,
+                output_type='hazard_curve')
+
+            haz_curve = models.HazardCurve.objects.create(
+                output=hco,
+                investigation_time=hc.investigation_time,
+                imt=im_type,
+                imls=imls,
+                sa_period=sa_period,
+                sa_damping=sa_damping,
+                statistics='mean')
+
+            for point in all_points:
+                # all hazard curves for this point and imt
+                mean_curve = compute_mean_curve_for_point(
+                    point, im_type, sa_period, sa_damping, self.job)
+
+                models.HazardCurveData.objects.create(
+                    hazard_curve=haz_curve,
+                    poes=mean_curve,
+                    location=point.wkt2d)
+
     def clean_up(self):
         """
         Delete temporary database records. These records represent intermediate
@@ -360,6 +410,108 @@ class ClassicalHazardCalculator(haz_general.BaseHazardCalculatorNext):
             lt_realization__hazard_calculation=hc.id).delete()
         models.SiteData.objects.filter(hazard_calculation=hc.id).delete()
         logs.LOG.debug('< done cleaning up temporary DB data')
+
+
+def curves_weights_for_point(point, imt, sa_period, sa_damping, job):
+    """
+    Fetch the sequence of hazard curve PoE values (as a list of lists of
+    floats) for a given ``point``, ``imt``, and ``job``. Also return a list of
+    `weight` values for each curve. (NOTE: For Monte-Carlo logic tree sampling,
+    the weights are implicit and will all be `None`. For logic tree end branch
+    enumeration, weights are explicit.)
+
+    :param point:
+        :class:`nhlib.geo.point.Point` instance indicating the point of
+        interest for mean curve computation. This location will be used
+        in spatial query to fetch input data for the mean curve computation.
+    :param str imt:
+        Intensity measure type (PGA, SA, PGV, etc.).
+    :param float sa_period:
+        Only relevant if ``imt`` is "SA".
+    :param float sa_damping:
+        Only relevant if ``imt`` is "SA".
+    :param job:
+        :class:`openquake.db.models.OqJob` instance.
+
+    :returns:
+        A double of (curves, weights). Both should be of equal length.
+    """
+
+    curves_for_point = models.HazardCurveData.objects.filter(
+        hazard_curve__output__oq_job=job,
+        hazard_curve__imt=imt,
+        hazard_curve__sa_period=sa_period,
+        hazard_curve__sa_damping=sa_damping,
+        # We only want curves associated with a logic tree
+        # realization
+        hazard_curve__lt_realization__isnull=False,
+        location__equals=point.wkt2d).select_related(
+            # fetch the lt_realization info as well, to get the
+            # weights as well in just a single query
+            'hazard_curve__lt_realization')
+
+    curves_poes = [crv.poes for crv in curves_for_point]
+    curves_weights = [crv.hazard_curve.lt_realization.weight
+                      for crv in curves_for_point]
+
+    return curves_poes, curves_weights
+
+
+def compute_mean_curve(curves, weights=None):
+    """
+    Compute the mean or weighted average of a set of curves.
+
+    :param curves:
+        2D array-like collection of hazard curve PoE values. Each element
+        should be a sequence of PoE `float` values. Example::
+
+            [[0.5, 0.4, 0.3], [0.6, 0.59, 0.1]]
+    :param weights:
+        List or numpy array of weights, 1 weight value for each of the input
+        ``curves``. This is only used for weighted averages.
+
+    :returns:
+        A curve representing the mean/average (or weighted average, in case
+        ``weights`` are specified) of all the input ``curves``.
+    """
+    # Weights
+    if weights is not None:
+        # If all of the weights are None, don't compute a weighted average
+        if set(weights) == set([None]):
+            weights = None
+        elif any([x is None for x in weights]):
+            # a subset of the weights are None
+            # this is invalid
+            raise ValueError('`None` value found in weights: %s' % weights)
+
+    return numpy.average(curves, weights=weights, axis=0)
+
+
+def compute_mean_curve_for_point(point, imt, sa_period, sa_damping, job):
+    """
+    Compute and return the mean or weighted average curve for a given
+    ``point``, ``imt``, and ``job``.
+
+    :param point:
+        :class:`nhlib.geo.point.Point` instance indicating the point of
+        interest for mean curve computation. This location will be used
+        in spatial query to fetch input data for the mean curve computation.
+    :param str imt:
+        Intensity measure type (PGA, SA, PGV, etc.).
+    :param float sa_period:
+        Only relevant if ``imt`` is "SA".
+    :param float sa_damping:
+        Only relevant if ``imt`` is "SA".
+    :param job:
+        :class:`openquake.db.models.OqJob` instance.
+
+    :returns:
+        1D numpy array representing the mean curve.
+    """
+    curves, weights = curves_weights_for_point(
+        point, imt, sa_period, sa_damping, job)
+
+    return compute_mean_curve(curves, weights)
 
 
 def update_result_matrix(current, new):
