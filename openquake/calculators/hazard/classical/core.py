@@ -333,15 +333,17 @@ class ClassicalHazardCalculator(haz_general.BaseHazardCalculatorNext):
                 [hc_progress] = models.HazardCurveProgress.objects.filter(
                     lt_realization=rlz.id, imt=imt)
 
-                hc_data_inserter = writer.BulkInserter(models.HazardCurveData)
-                for i, location in enumerate(points):
-                    poes = hc_progress.result_matrix[i]
-                    hc_data_inserter.add_entry(
-                        hazard_curve_id=haz_curve.id,
-                        poes=poes.tolist(),
-                        location=location.wkt2d)
+                with transaction.commit_on_success(using='reslt_writer'):
+                    hc_data_inserter = writer.BulkInserter(
+                        models.HazardCurveData)
+                    for i, location in enumerate(points):
+                        poes = hc_progress.result_matrix[i]
+                        hc_data_inserter.add_entry(
+                            hazard_curve_id=haz_curve.id,
+                            poes=poes.tolist(),
+                            location=location.wkt2d)
 
-                hc_data_inserter.flush()
+                    hc_data_inserter.flush()
 
     def post_process(self):
         """
