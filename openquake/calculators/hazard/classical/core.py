@@ -353,6 +353,9 @@ class ClassicalHazardCalculator(haz_general.BaseHazardCalculatorNext):
         if hc.mean_hazard_curves:
             self._calculate_mean_curves()
 
+        if len(hc.quantile_hazard_curves) > 0:
+            self._calculate_quantile_curves()
+
     def _calculate_mean_curves(self):
         """
         For each intensity measure type, collect all of the curves for all
@@ -393,6 +396,70 @@ class ClassicalHazardCalculator(haz_general.BaseHazardCalculatorNext):
                     hazard_curve=haz_curve,
                     poes=mean_curve,
                     location=point.wkt2d)
+
+    def _calculate_quantile_curves(self):
+        """
+        For each intensity measure type, collect all of the curves for all
+        logic tree realizations and calculate quantile or weighted quantile
+        curves for each point of interest in the calculation. Many quantile
+        levels can be specified.
+
+        Resulting quantile curve sets will be saved to the database, ready for
+        subsequent export.
+        """
+        hc = self.job.hazard_calculation
+
+        # Were the hazard curves computed using the Monte-Carlo approach?
+        # Or end-branch enumeration?
+        # This determines which quantile calculation method we apply.
+        enumerated = hc.number_of_logic_tree_samples == 0
+
+        all_points = hc.points_to_compute()
+
+        for imt, imls in hc.intensity_measure_types_and_levels.iteritems():
+            im_type, sa_period, sa_damping = haz_general.split_imt_str(imt)
+
+            q_curve_sets = dict()
+            for quantile in hc.quantile_hazard_curves:
+                hco = models.Output.objects.create(
+                    owner=hc.owner,
+                    oq_job=self.job,
+                    display_name=('quantile(%(quantile)s)-curves-%(imt)s'
+                                  % dict(quantile=quantile, imt=imt)),
+                    output_type='hazard_curve')
+
+                haz_curve = models.HazardCurve.objects.create(
+                    output=hco,
+                    investigation_time=hc.investigation_time,
+                    imt=im_type,
+                    imls=imls,
+                    sa_period=sa_period,
+                    sa_damping=sa_damping,
+                    statistics='quantile',
+                    quantile=quantile)
+
+                q_curve_sets[quantile] = haz_curve
+
+            for point in all_points:
+                curves, weights = curves_weights_for_point(
+                    point, im_type, sa_period, sa_damping, self.job)
+
+                for quantile in hc.quantile_hazard_curves:
+                    # all hazard curves for this point, imt, and quantile
+                    # TODO: compute quantile curve
+                    # TODO: save quantile curve to DB
+                    if enumerated:
+                        q_curve = compute_weighted_quantile_curve(
+                            curves, weights, quantile)
+                        # TODO: save me
+                    else:
+                        q_curve = compute_quantile_curve(curves, quantile)
+                        # TODO: save me
+
+                    models.HazardCurveData.objects.create(
+                        hazard_curve=q_curve_sets[quantile],
+                        poes=q_curve,
+                        location=point.wkt2d)
 
     def clean_up(self):
         """
@@ -456,6 +523,33 @@ def curves_weights_for_point(point, imt, sa_period, sa_damping, job):
                       for crv in curves_for_point]
 
     return curves_poes, curves_weights
+
+
+def compute_mean_curve_for_point(point, imt, sa_period, sa_damping, job):
+    """
+    Compute and return the mean or weighted average curve for a given
+    ``point``, ``imt``, and ``job``.
+
+    :param point:
+        :class:`nhlib.geo.point.Point` instance indicating the point of
+        interest for mean curve computation. This location will be used
+        in spatial query to fetch input data for the mean curve computation.
+    :param str imt:
+        Intensity measure type (PGA, SA, PGV, etc.).
+    :param float sa_period:
+        Only relevant if ``imt`` is "SA".
+    :param float sa_damping:
+        Only relevant if ``imt`` is "SA".
+    :param job:
+        :class:`openquake.db.models.OqJob` instance.
+
+    :returns:
+        1D numpy array representing the mean curve.
+    """
+    curves, weights = curves_weights_for_point(
+        point, imt, sa_period, sa_damping, job)
+
+    return compute_mean_curve(curves, weights)
 
 
 def compute_mean_curve(curves, weights=None):
@@ -553,33 +647,6 @@ def compute_weighted_quantile_curve(curves, weights, quantile):
         result_curve.append(numpy.interp(quantile, cum_weights, sorted_poes))
 
     return numpy.array(result_curve)
-
-
-def compute_mean_curve_for_point(point, imt, sa_period, sa_damping, job):
-    """
-    Compute and return the mean or weighted average curve for a given
-    ``point``, ``imt``, and ``job``.
-
-    :param point:
-        :class:`nhlib.geo.point.Point` instance indicating the point of
-        interest for mean curve computation. This location will be used
-        in spatial query to fetch input data for the mean curve computation.
-    :param str imt:
-        Intensity measure type (PGA, SA, PGV, etc.).
-    :param float sa_period:
-        Only relevant if ``imt`` is "SA".
-    :param float sa_damping:
-        Only relevant if ``imt`` is "SA".
-    :param job:
-        :class:`openquake.db.models.OqJob` instance.
-
-    :returns:
-        1D numpy array representing the mean curve.
-    """
-    curves, weights = curves_weights_for_point(
-        point, imt, sa_period, sa_damping, job)
-
-    return compute_mean_curve(curves, weights)
 
 
 def update_result_matrix(current, new):
