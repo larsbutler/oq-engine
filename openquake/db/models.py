@@ -1126,6 +1126,10 @@ class HazardCurveData(djm.Model):
     poes = fields.FloatArrayField()
     location = djm.PointField(srid=4326)
 
+    # Override the default manager with a GeoManager instance in order to
+    # enable spatial queries.
+    objects = djm.GeoManager()
+
     class Meta:
         db_table = 'hzrdr\".\"hazard_curve_data'
 
