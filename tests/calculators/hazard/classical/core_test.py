@@ -21,6 +21,7 @@ import kombu
 import numpy
 
 from nose.plugins.attrib import attr
+from scipy.stats import mstats
 
 from openquake.calculators.hazard import general
 from openquake.calculators.hazard.classical import core
@@ -478,6 +479,11 @@ class HelpersTestCase(unittest.TestCase):
         # was just copied verbatim from an existing test. See
         # tests/hazard_test.py.)
         numpy.testing.assert_allclose(expected_curve, actual_curve, atol=0.005)
+
+        # Since this implementation is separate from but equivalent to scipy's
+        # mquantiles, compare algorithms just to prove they are the same:
+        scipy_curve = mstats.mquantiles(curves, prob=quantile, axis=0)[0]
+        numpy.testing.assert_allclose(scipy_curve, actual_curve)
 
     def test_compute_weighted_quantile_curve_case1(self):
         expected_curve = numpy.array([0.69909, 0.60859, 0.50328])

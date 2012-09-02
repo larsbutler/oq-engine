@@ -25,7 +25,6 @@ import nhlib.imt
 import numpy
 
 from django.db import transaction
-from scipy.stats import mstats
 
 from openquake import logs
 from openquake import writer
