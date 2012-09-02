@@ -375,8 +375,6 @@ class ClassicalHazardCalculator(haz_general.BaseHazardCalculatorNext):
         """
         hc = self.job.hazard_calculation
 
-        all_points = hc.points_to_compute()
-
         with transaction.commit_on_success(using='reslt_writer'):
 
             curve_inserter = writer.BulkInserter(models.HazardCurveData)
@@ -399,21 +397,29 @@ class ClassicalHazardCalculator(haz_general.BaseHazardCalculatorNext):
                     sa_damping=sa_damping,
                     statistics='mean')
 
-                curves_gen = curves_weights_gen(im_type, sa_period, sa_damping, self.job)
+                curves_gen = curves_weights_gen(
+                    im_type, sa_period, sa_damping, self.job)
 
                 for data in curves_gen:
                     # each iteration is all curves for one site
                     curves_poes = []
                     curves_weights = []
+
+                    crv = None
                     for crv in data:
                         curves_poes.append(crv.poes)
-                        curves_weights.append(crv.hazard_curve.lt_realization.weight)
+                        curves_weights.append(
+                            crv.hazard_curve.lt_realization.weight)
 
-                    mean_curve = compute_mean_curve(curves_poes, weights=curves_weights)
+                    mean_curve = compute_mean_curve(
+                        curves_poes, weights=curves_weights)
 
                     curve_inserter.add_entry(
                         hazard_curve_id=haz_curve.id,
                         poes=mean_curve.tolist(),
+                        # NOTE: we can just use the last `crv` from the loop;
+                        # the location for all iterations of the loop are
+                        # assumed to be the same
                         location=crv.location.wkt)
 
             curve_inserter.flush()
@@ -434,8 +440,6 @@ class ClassicalHazardCalculator(haz_general.BaseHazardCalculatorNext):
         # Or end-branch enumeration?
         # This determines which quantile calculation method we apply.
         enumerated = hc.number_of_logic_tree_samples == 0
-
-        all_points = hc.points_to_compute()
 
         with transaction.commit_on_success(using='reslt_writer'):
 
@@ -465,29 +469,35 @@ class ClassicalHazardCalculator(haz_general.BaseHazardCalculatorNext):
 
                     q_curve_sets[quantile] = haz_curve
 
-                curves_gen = curves_weights_gen(im_type, sa_period, sa_damping, self.job)
+                curves_gen = curves_weights_gen(
+                    im_type, sa_period, sa_damping, self.job)
 
                 for data in curves_gen:
                     # each iteration is all curves for one site
                     curves_poes = []
                     curves_weights = []
+
+                    crv = None
                     for crv in data:
                         curves_poes.append(crv.poes)
-                        curves_weights.append(crv.hazard_curve.lt_realization.weight)
+                        curves_weights.append(
+                            crv.hazard_curve.lt_realization.weight)
 
                     for quantile in hc.quantile_hazard_curves:
                         # all hazard curves for this point, imt, and quantile
-                        # TODO: compute quantile curve
-                        # TODO: save quantile curve to DB
                         if enumerated:
                             q_curve = compute_weighted_quantile_curve(
                                 curves_poes, curves_weights, quantile)
                         else:
-                            q_curve = compute_quantile_curve(curves_poes, quantile)
+                            q_curve = compute_quantile_curve(
+                                curves_poes, quantile)
 
                         curve_inserter.add_entry(
                             hazard_curve_id=q_curve_sets[quantile].id,
                             poes=q_curve.tolist(),
+                            # NOTE: we can just use the last `crv` from the
+                            # loop; the location for all iterations of the loop
+                            # are assumed to be the same
                             location=crv.location.wkt)
 
             curve_inserter.flush()
@@ -512,10 +522,31 @@ class ClassicalHazardCalculator(haz_general.BaseHazardCalculatorNext):
 
 
 def curves_weights_gen(imt, sa_period, sa_damping, job):
+    """
+    Create a generator which yields all curves (in slices) for a given ``imt``,
+    ``sa_period`` (possibly `None`), ``sa_damping`` (possibly `None`), and
+    ``job``. Each value yielded is a sequence of all curves for a given
+    location.
+
+    :param str imt:
+        Intensity measure type (PGA, SA, PGV, etc.).
+    :param float sa_period:
+        Only relevant if ``imt`` is "SA".
+    :param float sa_damping:
+        Only relevant if ``imt`` is "SA".
+    :param job:
+        :class:`openquake.db.models.OqJob` instance.
+
+    :yields:
+        Generates slices of a sequence of curves
+        (:class:`openquake.db.models.HazardCurveData` objects). Each slice is
+        all of the curves for a given location. (The DB query also joins
+        `lt_realization` and fetches the `weight`--if any--for each curve.)
+    """
+
     hc = job.hazard_calculation
     num_rlz = models.LtRealization.objects.filter(
         hazard_calculation=hc).count()
-    num_points = len(hc.points_to_compute())
 
     curves_weights = models.HazardCurveData.objects.filter(
         hazard_curve__output__oq_job=job,
@@ -530,80 +561,10 @@ def curves_weights_gen(imt, sa_period, sa_damping, job):
             'hazard_curve__lt_realization').order_by('location')
 
     for i in xrange(0, len(curves_weights), num_rlz):
-        next_curves = curves_weights[i : i + num_rlz]
+        next_curves = curves_weights[i:i + num_rlz]
+        # `next_curves` is all curves for all realizations for a given location
+        # (which match the function input params)
         yield next_curves
-
-
-def curves_weights_for_point(point, imt, sa_period, sa_damping, job):
-    """
-    Fetch the sequence of hazard curve PoE values (as a list of lists of
-    floats) for a given ``point``, ``imt``, and ``job``. Also return a list of
-    `weight` values for each curve. (NOTE: For Monte-Carlo logic tree sampling,
-    the weights are implicit and will all be `None`. For logic tree end branch
-    enumeration, weights are explicit.)
-
-    :param point:
-        :class:`nhlib.geo.point.Point` instance indicating the point of
-        interest for mean curve computation. This location will be used
-        in spatial query to fetch input data for the mean curve computation.
-    :param str imt:
-        Intensity measure type (PGA, SA, PGV, etc.).
-    :param float sa_period:
-        Only relevant if ``imt`` is "SA".
-    :param float sa_damping:
-        Only relevant if ``imt`` is "SA".
-    :param job:
-        :class:`openquake.db.models.OqJob` instance.
-
-    :returns:
-        A double of (curves, weights). Both should be of equal length.
-    """
-
-    curves_for_point = models.HazardCurveData.objects.filter(
-        hazard_curve__output__oq_job=job,
-        hazard_curve__imt=imt,
-        hazard_curve__sa_period=sa_period,
-        hazard_curve__sa_damping=sa_damping,
-        # We only want curves associated with a logic tree
-        # realization
-        hazard_curve__lt_realization__isnull=False,
-        location__equals=point.wkt2d).select_related(
-            # fetch the lt_realization info as well, to get the
-            # weights as well in just a single query
-            'hazard_curve__lt_realization')
-
-    curves_poes = [crv.poes for crv in curves_for_point]
-    curves_weights = [crv.hazard_curve.lt_realization.weight
-                      for crv in curves_for_point]
-
-    return curves_poes, curves_weights
-
-
-def compute_mean_curve_for_point(point, imt, sa_period, sa_damping, job):
-    """
-    Compute and return the mean or weighted average curve for a given
-    ``point``, ``imt``, and ``job``.
-
-    :param point:
-        :class:`nhlib.geo.point.Point` instance indicating the point of
-        interest for mean curve computation. This location will be used
-        in spatial query to fetch input data for the mean curve computation.
-    :param str imt:
-        Intensity measure type (PGA, SA, PGV, etc.).
-    :param float sa_period:
-        Only relevant if ``imt`` is "SA".
-    :param float sa_damping:
-        Only relevant if ``imt`` is "SA".
-    :param job:
-        :class:`openquake.db.models.OqJob` instance.
-
-    :returns:
-        1D numpy array representing the mean curve.
-    """
-    curves, weights = curves_weights_for_point(
-        point, imt, sa_period, sa_damping, job)
-
-    return compute_mean_curve(curves, weights)
 
 
 def compute_mean_curve(curves, weights=None):
@@ -658,7 +619,8 @@ def compute_quantile_curve(curves, quantile):
     # this implementation is an alternative to:
     # return numpy.array(mstats.mquantiles(curves, prob=quantile, axis=0))[0]
 
-    # more or less copied from the scipy mquantiles function, just faster
+    # more or less copied from the scipy mquantiles function, just special
+    # cased for what we need (and about 6x faster)
 
     arr = numpy.array(curves)
 
@@ -668,10 +630,10 @@ def compute_quantile_curve(curves, quantile):
     n = len(arr)
     aleph = n * p + m
     k = numpy.floor(aleph.clip(1, n - 1)).astype(int)
-    gamma = (aleph-k).clip(0, 1)
+    gamma = (aleph - k).clip(0, 1)
 
     data = numpy.sort(arr, axis=0).transpose()
-    return (1.0 - gamma) * data[:, k-1] + gamma * data[:, k]
+    return (1.0 - gamma) * data[:, k - 1] + gamma * data[:, k]
 
 
 # TODO: possible future optimization: compute many quantiles as once
