@@ -21,6 +21,8 @@ import nhlib
 import nhlib.calc
 import nhlib.imt
 
+import numpy
+
 import openquake
 
 from django.db import transaction
@@ -32,6 +34,7 @@ from openquake.db import models
 from openquake.input import logictree
 from openquake.utils import stats
 from openquake.utils import tasks as utils_tasks
+from openquake.utils.general import block_splitter as bs
 
 from openquake.db.aggregate_result_writer import (MeanCurveWriter,
                                                   QuantileCurveWriter)
@@ -281,6 +284,11 @@ class ClassicalHazardCalculator(haz_general.BaseHazardCalculatorNext):
     def post_process(self):
         logs.LOG.debug('> starting post processing')
 
+        if self.hc.mean_hazard_curves:
+            self._mean_post_proc()
+        return
+
+
         # If `mean_hazard_curves` is True and/or `quantile_hazard_curves`
         # has some value (not an empty list), do post processing.
         # Otherwise, just skip it altogether.
@@ -306,6 +314,115 @@ class ClassicalHazardCalculator(haz_general.BaseHazardCalculatorNext):
             post_processing.do_hazard_map_post_process(self.job)
 
         logs.LOG.debug('< done with post processing')
+
+    def _mean_post_proc(self):
+        max_curves_per_task = 100000
+        num_rlzs = models.LtRealization.objects.filter(
+            hazard_calculation=self.hc).count()
+
+        num_site_blocks_per_incr = int(max_curves_per_task) / int(num_rlzs)
+        # NOTE(larsbutler): `slice_incr` must be a multiple of `num_rlzs`
+        slice_incr = num_site_blocks_per_incr * num_rlzs  # unit: num records
+
+        if not (slice_incr / float(num_rlzs)) % 1 == 0:
+            raise ValueError(
+                "`slice_incr` is not evenly divisible by the number of "
+                "realizations; something is very wrong"
+            )
+
+        for imt, imls in self.hc.intensity_measure_types_and_levels.items():
+            im_type, sa_period, sa_damping = models.parse_imt(imt)
+
+            hco = models.Output.objects.create(
+                owner=self.hc.owner,
+                oq_job=self.job,
+                display_name='mean-curves-%s' % imt,
+                output_type='hazard_curve'
+            )
+            haz_curve = models.HazardCurve.objects.create(
+                output=hco,
+                investigation_time=self.hc.investigation_time,
+                imt=im_type,
+                imls=imls,
+                sa_period=sa_period,
+                sa_damping=sa_damping,
+                statistics='mean'
+            )
+
+            all_curves_for_imt = models.HazardCurveData.objects\
+                    .filter(hazard_curve__output__oq_job=self.job,
+                            hazard_curve__imt=im_type,
+                            hazard_curve__sa_period=sa_period,
+                            hazard_curve__sa_damping=sa_damping,
+                            # We only want curves associated with a logic tree
+                            # realization (and not statistical aggregates):
+                            hazard_curve__lt_realization__isnull=False)\
+                    .select_related('hazard_curve__lt_realization')\
+                    .order_by('location')
+
+            for chunk in queryset_iter(all_curves_for_imt, slice_incr):
+                # slice each chunk by `num_rlzs` into `site_chunk`
+                # and compute the aggregate
+                for site_chunk in bs(chunk, num_rlzs):
+                    site = site_chunk[0].location
+                    curves_poes = [x.poes for x in site_chunk]
+                    curves_weights = [x.hazard_curve.lt_realization.weight
+                                      for x in site_chunk]
+                    mean_curve = compute_mean_curve(
+                        curves_poes, weights=curves_weights
+                    )
+                    models.HazardCurveData.objects.create(
+                        hazard_curve=haz_curve,
+                        poes=mean_curve,
+                        location=site
+                    )
+            #chunks = list(queryset_iter(all_curves_for_imt, slice_incr))
+
+
+def queryset_iter(queryset, chunk_size):
+    offset = 0
+    while True:
+        chunk = queryset[offset:offset + chunk_size]
+        if len(chunk) == 0:
+            raise StopIteration
+        else:
+            yield chunk
+            offset += chunk_size
+
+
+def compute_mean_curve(curves, weights=None):
+    """
+    Compute the mean or weighted average of a set of curves.
+
+    :param curves:
+        2D array-like collection of hazard curve PoE values. Each element
+        should be a sequence of PoE `float` values. Example::
+
+            [[0.5, 0.4, 0.3], [0.6, 0.59, 0.1]]
+
+        .. note::
+            This data represents the curves for all realizations for a given
+            site and IMT.
+
+    :param weights:
+        List or numpy array of weights, 1 weight value for each of the input
+        ``curves``. This is only used for weighted averages.
+
+    :returns:
+        A curve representing the mean/average (or weighted average, in case
+        ``weights`` are specified) of all the input ``curves``.
+    """
+    # Weights
+    if weights is not None:
+        # If all of the weights are None, don't compute a weighted average
+        if set(weights) == set([None]):
+            weights = None
+        elif any([x is None for x in weights]):
+            # a subset of the weights are None
+            # this is invalid
+            raise ValueError('`None` value found in weights: %s' % weights)
+
+    return numpy.average(curves, weights=weights, axis=0)
 
 
 def update_result_matrix(current, new):

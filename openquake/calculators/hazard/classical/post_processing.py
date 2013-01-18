@@ -38,7 +38,7 @@ from openquake.utils.general import block_splitter
 
 
 # Number of locations considered by each task
-DEFAULT_LOCATIONS_PER_TASK = 1000
+DEFAULT_LOCATIONS_PER_TASK = 100000
 
 
 def setup_tasks(job, calculation, curve_finder, writers,
@@ -78,6 +78,13 @@ def setup_tasks(job, calculation, curve_finder, writers,
       Number of locations processed by each task in the post process
       phase (optional)
     """
+    hc = job.hazard_calculation
+    n_rlzs = models.LtRealization.objects\
+            .filter(hazard_calculation=hc)\
+            .count()
+
+    locations_per_task = 100000 / n_rlzs
+    logs.LOG.warn('locations_per_task: %s' % locations_per_task)
 
     tasks = []
 
@@ -91,8 +98,10 @@ def setup_tasks(job, calculation, curve_finder, writers,
 
     for imt in calculation.intensity_measure_types_and_levels:
 
+        import nose; nose.tools.set_trace()
         chunks = curve_finder.individual_curves_chunks(
             job, imt, locations_per_task)
+        import nose; nose.tools.set_trace()
 
         if calculation.should_compute_mean_curves():
             writer = writers['mean_curves'](job, imt)

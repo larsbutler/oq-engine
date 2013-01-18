@@ -1606,6 +1606,10 @@ class HazardCurveData(djm.Model):
     class Meta:
         db_table = 'hzrdr\".\"hazard_curve_data'
 
+    def __repr__(self):
+        return ('HazardCurveData(location="%(location)s", poes=%(poes)s)'
+                % dict(poes=self.poes, location=self.location.wkt))
+
 
 class SESCollection(djm.Model):
     """
