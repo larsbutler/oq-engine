@@ -1600,6 +1600,7 @@ class HazardCurveData(djm.Model):
     hazard_curve = djm.ForeignKey('HazardCurve')
     poes = fields.FloatArrayField()
     location = djm.PointField(srid=DEFAULT_SRID)
+    weight = djm.DecimalField(decimal_places=100, max_digits=101)
 
     objects = HazardCurveDataManager()
 

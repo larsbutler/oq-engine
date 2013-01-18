@@ -25,7 +25,7 @@ import numpy
 
 import openquake
 
-from django.db import transaction
+from django.db import transaction, connections
 
 from openquake import logs
 from openquake.calculators import base
@@ -357,10 +357,8 @@ class ClassicalHazardCalculator(haz_general.BaseHazardCalculatorNext):
                             # We only want curves associated with a logic tree
                             # realization (and not statistical aggregates):
                             hazard_curve__lt_realization__isnull=False)\
-                    .select_related('hazard_curve__lt_realization')\
                     .order_by('location')
 
-            from django.db import transaction
             from openquake.writer import BulkInserter
             with transaction.commit_on_success(using='reslt_writer'):
                 inserter = BulkInserter(models.HazardCurveData)
@@ -371,8 +369,7 @@ class ClassicalHazardCalculator(haz_general.BaseHazardCalculatorNext):
                     for site_chunk in bs(chunk, num_rlzs):
                         site = site_chunk[0].location
                         curves_poes = [x.poes for x in site_chunk]
-                        curves_weights = [x.hazard_curve.lt_realization.weight
-                                          for x in site_chunk]
+                        curves_weights = [x.weight for x in site_chunk]
                         mean_curve = compute_mean_curve(
                             curves_poes, weights=curves_weights
                         )
