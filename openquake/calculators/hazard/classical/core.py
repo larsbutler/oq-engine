@@ -360,23 +360,28 @@ class ClassicalHazardCalculator(haz_general.BaseHazardCalculatorNext):
                     .select_related('hazard_curve__lt_realization')\
                     .order_by('location')
 
-            for chunk in queryset_iter(all_curves_for_imt, slice_incr):
-                # slice each chunk by `num_rlzs` into `site_chunk`
-                # and compute the aggregate
-                for site_chunk in bs(chunk, num_rlzs):
-                    site = site_chunk[0].location
-                    curves_poes = [x.poes for x in site_chunk]
-                    curves_weights = [x.hazard_curve.lt_realization.weight
-                                      for x in site_chunk]
-                    mean_curve = compute_mean_curve(
-                        curves_poes, weights=curves_weights
-                    )
-                    models.HazardCurveData.objects.create(
-                        hazard_curve=haz_curve,
-                        poes=mean_curve,
-                        location=site
-                    )
-            #chunks = list(queryset_iter(all_curves_for_imt, slice_incr))
+            from django.db import transaction
+            from openquake.writer import BulkInserter
+            with transaction.commit_on_success(using='reslt_writer'):
+                inserter = BulkInserter(models.HazardCurveData)
+
+                for chunk in queryset_iter(all_curves_for_imt, slice_incr):
+                    # slice each chunk by `num_rlzs` into `site_chunk`
+                    # and compute the aggregate
+                    for site_chunk in bs(chunk, num_rlzs):
+                        site = site_chunk[0].location
+                        curves_poes = [x.poes for x in site_chunk]
+                        curves_weights = [x.hazard_curve.lt_realization.weight
+                                          for x in site_chunk]
+                        mean_curve = compute_mean_curve(
+                            curves_poes, weights=curves_weights
+                        )
+                        inserter.add_entry(
+                            hazard_curve_id=haz_curve.id,
+                            poes=mean_curve.tolist(),
+                            location=site.wkt
+                        )
+                inserter.flush()
 
 
 def queryset_iter(queryset, chunk_size):
