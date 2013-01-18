@@ -387,7 +387,7 @@ class ClassicalHazardCalculator(haz_general.BaseHazardCalculatorNext):
 def queryset_iter(queryset, chunk_size):
     offset = 0
     while True:
-        chunk = queryset[offset:offset + chunk_size]
+        chunk = list(queryset[offset:offset + chunk_size].iterator())
         if len(chunk) == 0:
             raise StopIteration
         else:
