@@ -488,9 +488,14 @@ class BaseHazardCalculatorNext(base.CalculatorNext):
         im = self.hc.intensity_measure_types_and_levels
         points = self.computation_mesh
 
-        realizations = models.LtRealization.objects.filter(
-            hazard_calculation=self.hc.id)
+        # prepare site locations for the stored function call
+        lons = '{%s}' % ', '.join(str(v) for v in points.lons)
+        lats = '{%s}' % ', '.join(str(v) for v in points.lats)
 
+        # prepare output container records:
+        realizations = models.LtRealization.objects.filter(
+            hazard_calculation=self.hc.id
+        )
         for rlz in realizations:
             # create a new `HazardCurve` 'container' record for each
             # realization for each intensity measure type
@@ -500,7 +505,7 @@ class BaseHazardCalculatorNext(base.CalculatorNext):
                 hco = models.Output(
                     owner=self.hc.owner,
                     oq_job=self.job,
-                    display_name="hc-rlz-%s" % rlz.id,
+                    display_name="hc-rlz-%s-%s" % (rlz.id, imt),
                     output_type='hazard_curve',
                 )
                 hco.save()
@@ -516,34 +521,30 @@ class BaseHazardCalculatorNext(base.CalculatorNext):
                 )
                 haz_curve.save()
 
-                with transaction.commit_on_success(using='reslt_writer'):
-                    cursor = connections['reslt_writer'].cursor()
+        with transaction.commit_on_success(using='reslt_writer'):
+            cursor = connections['reslt_writer'].cursor()
 
-                    # prepare site locations for the stored function call
-
-                    # TODO(LB): I don't like the fact that we have to pass
-                    # potentially huge arguments (100k sites, for example).
-                    # I would like to be able to fetch this site data from
-                    # the stored function, but at the moment, the only form
-                    # available is a pickled `SiteCollection` object, and I've
-                    # experienced problems trying to import third-party libs
-                    # in a DB function context and could not get it to reliably
-                    # work.
-                    # As a fix, in addition to caching the pickled
-                    # SiteCollection in the DB, we could store also arrays for
-                    # lons and lats. It's duplicated information, but we have a
-                    # relatively low number of HazardCalculation records, so it
-                    # shouldn't be a big deal.
-                    lons = '{%s}' % ', '.join(str(v) for v in points.lons)
-                    lats = '{%s}' % ', '.join(str(v) for v in points.lats)
-
-                    cursor.execute(
-                        """
-                        SELECT hzrdr.finalize_hazard_curves(
-                            %s, %s, %s, %s, %s, %s)
-                        """,
-                        [self.hc.id, rlz.id, haz_curve.id, imt, lons, lats]
-                    )
+            # TODO(LB): I don't like the fact that we have to pass
+            # potentially huge arguments (100k sites, for example).
+            # I would like to be able to fetch this site data from
+            # the stored function, but at the moment, the only form
+            # available is a pickled `SiteCollection` object, and I've
+            # experienced problems trying to import third-party libs
+            # in a DB function context and could not get it to reliably
+            # work.
+            # As a fix, in addition to caching the pickled
+            # SiteCollection in the DB, we could store also arrays for
+            # lons and lats. It's duplicated information, but we have a
+            # relatively low number of HazardCalculation records, so it
+            # shouldn't be a big deal.
+            cursor.execute(
+                """
+                SELECT hzrdr.finalize_hazard_curves(
+                    %s, %s, %s, %s, %s, %s)
+                """,
+                [self.hc.id, self.job.id, self.hc.owner.id,
+                 self.hc.investigation_time, lons, lats]
+            )
 
     def initialize_sources(self):
         """
