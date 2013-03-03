@@ -748,7 +748,9 @@ class BaseHazardCalculatorNext(base.CalculatorNext):
         seed = self.hc.random_seed
         rnd.seed(seed)
 
-        [smlt] = models.inputs4hcalc(self.hc.id, input_type='source_model_logic_tree')
+        [smlt] = models.inputs4hcalc(
+            self.hc.id, input_type='source_model_logic_tree'
+        )
 
         ltp = logictree.LogicTreeProcessor(self.hc.id)
 
