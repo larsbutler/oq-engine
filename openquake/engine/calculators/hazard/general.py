@@ -23,6 +23,10 @@ import os
 import random
 import re
 import StringIO
+try:
+    import cPickle as pickle
+except ImportError:
+    import pickle
 
 import openquake.hazardlib
 import openquake.hazardlib.site
@@ -793,8 +797,7 @@ class BaseHazardCalculatorNext(base.CalculatorNext):
             seed = rnd.randint(MIN_SINT_32, MAX_SINT_32)
             rnd.seed(seed)
 
-    @staticmethod
-    def initialize_source_progress(lt_rlz, hzrd_src):
+    def initialize_source_progress(self, lt_rlz, hzrd_src):
         """
         Create ``source_progress`` models for given logic tree realization
         and set total sources of realization.
@@ -806,23 +809,58 @@ class BaseHazardCalculatorNext(base.CalculatorNext):
             :class:`openquake.engine.db.models.Input` object that needed parsed
             sources are referencing.
         """
-        cursor = connections['reslt_writer'].cursor()
-        src_progress_tbl = models.SourceProgress._meta.db_table
-        parsed_src_tbl = models.ParsedSource._meta.db_table
-        lt_rlz_tbl = models.LtRealization._meta.db_table
-        cursor.execute("""
-            INSERT INTO "%s" (lt_realization_id, parsed_source_id, is_complete)
-            SELECT %%s, id, FALSE
-            FROM "%s" WHERE input_id = %%s
-            ORDER BY id
-            """ % (src_progress_tbl, parsed_src_tbl),
-            [lt_rlz.id, hzrd_src.id])
-        cursor.execute("""
-            UPDATE "%s" SET total_items = (
-                SELECT count(1) FROM "%s" WHERE lt_realization_id = %%s
-            )""" % (lt_rlz_tbl, src_progress_tbl),
-            [lt_rlz.id])
-        transaction.commit_unless_managed()
+        site_coll_mesh = self.hc.site_collection.mesh
+
+        ### re-write this ###
+        with transaction.commit_on_success(using='reslt_writer'):
+            src_prog_inserter = writer.BulkInserter(models.SourceProgress)
+
+            parsed_sources = models.ParsedSource.objects\
+                .filter(input=hzrd_src.id)\
+                .values_list('id', 'nrml')\
+                .iterator()
+
+            # Each source is pickled, so we need to unpickle them:
+            parsed_sources = ((src_id, pickle.loads(str(raw_src)))
+                              for src_id, raw_src in parsed_sources)
+
+            # Generator of ids, sources (converted to hazard lib
+            # representation):
+            hl_ids_sources = (
+                (src_id, source.nrml_to_hazardlib(
+                    src, self.hc.rupture_mesh_spacing,
+                    self.hc.width_of_mfd_bin,
+                    self.hc.area_source_discretization))
+                for src_id, src in parsed_sources
+            )
+
+            for src_id, src in hl_ids_sources:
+                rup_encl_poly = src.get_rupture_enclosing_polygon(
+                    self.hc.maximum_distance
+                )
+                if rup_encl_poly.intersects(site_coll_mesh).any():
+                    # The rupture is close enough to be considered in our
+                    # calculation.
+                    # Otherwise, it's too far away from our region of interest
+                    # and we ignore it.
+                    src_prog_inserter.add_entry(
+                        lt_realization_id=lt_rlz.id, parsed_source_id=src_id,
+                        is_complete=False
+                    )
+            src_prog_inserter.flush()
+
+        # Finally, update the realization with the total count of work items in
+        # the realization.
+        with transaction.commit_on_success():
+            src_progress_tbl = models.SourceProgress._meta.db_table
+            lt_rlz_tbl = models.LtRealization._meta.db_table
+
+            cursor = connections['reslt_writer'].cursor()
+            cursor.execute("""
+                UPDATE "%s" SET total_items = (
+                    SELECT count(1) FROM "%s" WHERE lt_realization_id = %%s
+                )""" % (lt_rlz_tbl, src_progress_tbl),
+                [lt_rlz.id])
 
     def initialize_hazard_curve_progress(self, lt_rlz):
         """
