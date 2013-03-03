@@ -424,7 +424,7 @@ store_site_model'
         # complete
         src_prog = models.SourceProgress.objects.get(id=src_prog.id)
         self.assertTrue(src_prog.is_complete)
-        # We'll leave more detail testing of results to a QA test (which will
+        # We'll leave more detailed testing of results to a QA test (which will
         # take much more time to execute).
 
 
