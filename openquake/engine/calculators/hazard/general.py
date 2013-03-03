@@ -811,7 +811,6 @@ class BaseHazardCalculatorNext(base.CalculatorNext):
         """
         site_coll_mesh = self.hc.site_collection.mesh
 
-        ### re-write this ###
         with transaction.commit_on_success(using='reslt_writer'):
             src_prog_inserter = writer.BulkInserter(models.SourceProgress)
 
