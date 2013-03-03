@@ -805,6 +805,10 @@ class BaseHazardCalculatorNext(base.CalculatorNext):
         Create ``source_progress`` models for given logic tree realization
         and set total sources of realization.
 
+        If sources defined in the model are too far away from the calculation
+        area of interest, ``source_progress`` records will not be created and
+        these sources will not even be considered in the calculation.
+
         :param lt_rlz:
             :class:`openquake.engine.db.models.LtRealization` object to
             initialize source progress for.
