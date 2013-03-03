@@ -133,12 +133,13 @@ class CalculatorNext(object):
         """
         Performs an action when a task is completed successfully.
         :param dict body: the message sent by the task. It contains at least
-        the keys `job_id` and `num_items`. They idea is to add additional
+        the keys `job_id` and `num_items`. The idea is to add additional
         keys and then process them in the hook. Notice that the message
         is sent by using
-        `openquake.engine.calculators.base.signal_task_complete`.
+        :func:`openquake.engine.calculators.base.signal_task_complete`.
+
+        Optionally override this in subclasses to respond to these messages.
         """
-        pass
 
     def pre_execute(self):
         """
