@@ -697,7 +697,9 @@ class BaseHazardCalculatorNext(base.CalculatorNext):
             See :meth:`initialize_realizations` for more info.
         """
         hc = self.job.hazard_calculation
-        [smlt] = models.inputs4hcalc(hc.id, input_type='source_model_logic_tree')
+        [smlt] = models.inputs4hcalc(
+            hc.id, input_type='source_model_logic_tree'
+        )
         ltp = logictree.LogicTreeProcessor(hc.id)
         hzrd_src_cache = {}
 
