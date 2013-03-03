@@ -639,7 +639,6 @@ class BaseHazardCalculatorNext(base.CalculatorNext):
 
     # Silencing 'Too many local variables'
     # pylint: disable=R0914
-    @transaction.commit_on_success(using='reslt_writer')
     def initialize_realizations(self, rlz_callbacks=None):
         """
         Create records for the `hzrdr.lt_realization` and
@@ -850,9 +849,8 @@ class BaseHazardCalculatorNext(base.CalculatorNext):
                     )
             src_prog_inserter.flush()
 
-        # Finally, update the realization with the total count of work items in
-        # the realization.
-        with transaction.commit_on_success():
+            # Finally, update the realization with the total count of work
+            # items in the realization.
             src_progress_tbl = models.SourceProgress._meta.db_table
             lt_rlz_tbl = models.LtRealization._meta.db_table
 
