@@ -26,6 +26,7 @@ from openquake.engine import engine2
 from openquake.engine.calculators.hazard import general
 from openquake.engine.calculators.hazard.classical import core as cls_core
 from openquake.engine.db import models
+from openquake.engine.utils import get_calculator_class
 
 from tests.utils import helpers
 
@@ -376,7 +377,7 @@ class Bug1098154TestCase(unittest.TestCase):
         self.assertEqual(0, retcode)
         job = models.OqJob.objects.latest('id')
         job_stats = models.JobStats.objects.get(oq_job=job)
-        self.assertEqual(236, job_stats.num_tasks)
+        self.assertEqual(34, job_stats.num_tasks)
 
         # As the bug description explains, run the same job a second time and
         # check the task count. It should not grow.
@@ -386,4 +387,32 @@ class Bug1098154TestCase(unittest.TestCase):
         self.assertEqual(0, retcode)
         job = models.OqJob.objects.latest('id')
         job_stats = models.JobStats.objects.get(oq_job=job)
-        self.assertEqual(236, job_stats.num_tasks)
+        self.assertEqual(34, job_stats.num_tasks)
+
+
+class PreCalculationSourceFilteringTestCase(unittest.TestCase):
+
+    def test_init_src_prog_pre_calc_filtering(self):
+        cfg = helpers.get_data_path('filter_sources_by_proximity_test/job.ini')
+        job = helpers.get_hazard_job(cfg)
+        calc = get_calculator_class(
+            'hazard', job.hazard_calculation.calculation_mode
+        )(job)
+
+        models.JobStats.objects.create(oq_job=job)
+
+        calc.pre_execute()
+
+        src_prog = models.SourceProgress.objects.filter(
+            lt_realization__hazard_calculation=job.hazard_calculation
+        )
+        self.assertEqual(1, len(src_prog))
+        [src_prog] = src_prog
+
+        # Since there are two sources in the source model for this test job,
+        # make sure the correct one is filtered out.
+        # The second one should be filtered out. Here, our single
+        # SourceProgress record references the first source.
+        nrml_source = src_prog.parsed_source.nrml
+        self.assertEqual('1', nrml_source.id)
+        self.assertEqual('test point source 1', nrml_source.name)
