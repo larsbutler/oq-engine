@@ -146,7 +146,7 @@ store_site_model'
         # source_progress records (that is, 1 record per source).
         src_prog = models.SourceProgress.objects.filter(
             lt_realization=ltr.id)
-        self.assertEqual(118, len(src_prog))
+        self.assertEqual(17, len(src_prog))
         self.assertFalse(any([x.is_complete for x in src_prog]))
 
         # Check that hazard curve progress records were properly
@@ -184,7 +184,7 @@ store_site_model'
         self.assertFalse(ltr1.is_complete)
         self.assertEqual(['b1'], ltr1.sm_lt_path)
         self.assertEqual(['b1'], ltr1.gsim_lt_path)
-        self.assertEqual(118, ltr1.total_items)
+        self.assertEqual(17, ltr1.total_items)
         self.assertEqual(0, ltr1.completed_items)
 
         self.assertEqual(1, ltr2.ordinal)
@@ -192,7 +192,7 @@ store_site_model'
         self.assertFalse(ltr2.is_complete)
         self.assertEqual(['b1'], ltr2.sm_lt_path)
         self.assertEqual(['b1'], ltr2.gsim_lt_path)
-        self.assertEqual(118, ltr2.total_items)
+        self.assertEqual(17, ltr2.total_items)
         self.assertEqual(0, ltr2.completed_items)
 
         for ltr in (ltr1, ltr2):
@@ -235,7 +235,7 @@ store_site_model'
         self.assertFalse(ltr.is_complete)
         self.assertEqual(['b1'], ltr.sm_lt_path)
         self.assertEqual(['b1'], ltr.gsim_lt_path)
-        self.assertEqual(118, ltr.total_items)
+        self.assertEqual(17, ltr.total_items)
         self.assertEqual(0, ltr.completed_items)
 
         self._check_logic_tree_realization_source_progress(ltr)
@@ -249,13 +249,13 @@ store_site_model'
         # Test the job stats:
         job_stats = models.JobStats.objects.get(oq_job=self.job.id)
         # num sources * num lt samples / block size (items per task):
-        self.assertEqual(236, job_stats.num_tasks)
+        self.assertEqual(34, job_stats.num_tasks)
         self.assertEqual(120, job_stats.num_sites)
         self.assertEqual(2, job_stats.num_realizations)
 
         # Check the calculator total/progress counters as well:
         self.assertEqual(0, self.calc.progress['computed'])
-        self.assertEqual(236, self.calc.progress['total'])
+        self.assertEqual(34, self.calc.progress['total'])
 
         # Update job status to move on to the execution phase.
         self.job.is_running = True
