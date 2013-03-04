@@ -823,6 +823,7 @@ class BaseHazardCalculatorNext(base.CalculatorNext):
 
             parsed_sources = models.ParsedSource.objects\
                 .filter(input=hzrd_src.id)\
+                .order_by('id')\
                 .values_list('id', 'nrml')\
                 .iterator()
 
