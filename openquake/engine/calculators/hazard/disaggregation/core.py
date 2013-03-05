@@ -126,7 +126,9 @@ def compute_disagg(job_id, sites, lt_rlz_id):
     for src in sources:
         apply_uncertainties(src)
 
-    # Make filter for site distance to rupture:
+    # Make filters for distance to source and distance to rupture:
+    src_site_filter = openquake.hazardlib.calc.filters.\
+        source_site_distance_filter(hc.maximum_distance)
     rup_site_filter = openquake.hazardlib.calc.filters.\
         rupture_site_distance_filter(hc.maximum_distance)
 
@@ -168,6 +170,7 @@ def compute_disagg(job_id, sites, lt_rlz_id):
                     'mag_bin_width': hc.mag_bin_width,
                     'dist_bin_width': hc.distance_bin_width,
                     'coord_bin_width': hc.coordinate_bin_width,
+                    'source_site_filter': src_site_filter,
                     'rupture_site_filter': rup_site_filter,
                 }
                 bin_edges, diss_matrix = openquake.hazardlib.calc.\
