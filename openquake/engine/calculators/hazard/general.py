@@ -743,7 +743,7 @@ class BaseHazardCalculatorNext(base.CalculatorNext):
         hc = self.job.hazard_calculation
         [smlt] = models.inputs4hcalc(hc.id,
                                      input_type='source_model_logic_tree')
-        ltp = logictree.LogicTreeProcessor(hc.id)
+        ltp = logictree.get_logic_tree_processor(hc.id)
         hzrd_src_cache = {}
 
         for i, path_info in enumerate(ltp.enumerate_paths()):
@@ -795,7 +795,7 @@ class BaseHazardCalculatorNext(base.CalculatorNext):
         [smlt] = models.inputs4hcalc(self.hc.id,
                                      input_type='source_model_logic_tree')
 
-        ltp = logictree.LogicTreeProcessor(self.hc.id)
+        ltp = logictree.get_logic_tree_processor(self.hc.id)
 
         hzrd_src_cache = {}
 
