@@ -47,7 +47,7 @@ from openquake.engine.engine import JobContext
 from openquake.engine import engine
 from openquake.engine import engine2
 from openquake.engine import logs
-from openquake.engine.input.logictree import LogicTreeProcessor
+from openquake.engine.input import logictree
 from openquake.engine.utils import config, get_calculator_class
 
 CD = os.path.dirname(__file__)  # current directory
@@ -243,7 +243,7 @@ def store_hazard_logic_trees(a_job):
     :param a_job:
         :class:`openquake.engine.engine.JobContext` instance.
     """
-    lt_proc = LogicTreeProcessor(
+    lt_proc = logictree.get_logic_tree_processor(
         a_job['BASE_PATH'],
         a_job['SOURCE_MODEL_LOGIC_TREE_FILE_PATH'],
         a_job['GMPE_LOGIC_TREE_FILE_PATH'])
