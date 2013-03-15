@@ -157,7 +157,7 @@ def export_hazard_curve(output, target_dir):
         # This is much more useful and organized than simply dumping all of the
         # results to a single directory.
         haz_calc = hc.lt_realization.hazard_calculation
-        ltp = logictree.LogicTreeProcessor(haz_calc.id)
+        ltp = logictree.get_logic_tree_processor(haz_calc.id)
         export_dir = _get_end_branch_export_path(target_dir, hc, ltp)
         path = os.path.join(export_dir, filename)
     else:
@@ -400,7 +400,7 @@ def export_disagg_matrix(output, target_dir):
 
     filename = '%s.xml' % output.display_name
     haz_calc = disagg_result.lt_realization.hazard_calculation
-    ltp = logictree.LogicTreeProcessor(haz_calc.id)
+    ltp = logictree.get_logic_tree_processor(haz_calc.id)
     export_dir = _get_end_branch_export_path(target_dir, disagg_result, ltp)
     path = os.path.abspath(os.path.join(export_dir, filename))
 
