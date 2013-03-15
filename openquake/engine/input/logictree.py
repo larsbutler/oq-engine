@@ -1038,21 +1038,15 @@ def read_logic_trees(basepath, source_model_logictree_path,
 
 class LogicTreeProcessor(object):
     """
-    Logic tree processor. High-level interface to dealing with logic trees
-    that are already in the database.
+    Logic tree processor. High-level interface to dealing with logic trees,
+    from the raw XML content.
 
-    :param int calc_id:
-        ID of a :class:`openquake.engine.db.models.HazardCalculation`.
+    :param smlt_content:
+        Source model logic tree XML content.
+    :param gmpelt_content:
+        GMPE logictree XML content.
     """
-    def __init__(self, calc_id):
-        [smlt_input] = models.inputs4hcalc(
-            calc_id, input_type='source_model_logic_tree')
-        smlt_content = smlt_input.model_content.raw_content_ascii
-
-        [gmpelt_input] = models.inputs4hcalc(
-            calc_id, input_type='gsim_logic_tree')
-        gmpelt_content = gmpelt_input.model_content.raw_content_ascii
-
+    def __init__(self, smlt_content, gmpelt_content):
         self.source_model_lt = SourceModelLogicTree(
             smlt_content, basepath=None, filename=None, validate=False
         )
@@ -1178,3 +1172,24 @@ class LogicTreeProcessor(object):
             branchset = branch.child_branchset
 
         return trt_to_gsim
+
+
+def get_logic_tree_processor(calc_id):
+    """
+    Construct a `LogicTreeProcessor` for the given ``calc_id``.
+
+    :param int calc_id:
+        ID of a :class:`openquake.engine.db.models.HazardCalculation`.
+
+    :returns:
+        A :class:`LogicTreeProcessor` instance.
+    """
+    [smlt_input] = models.inputs4hcalc(
+        calc_id, input_type='source_model_logic_tree')
+    smlt_content = smlt_input.model_content.raw_content_ascii
+
+    [gmpelt_input] = models.inputs4hcalc(
+        calc_id, input_type='gsim_logic_tree')
+    gmpelt_content = gmpelt_input.model_content.raw_content_ascii
+
+    return LogicTreeProcessor(smlt_content, gmpelt_content)
