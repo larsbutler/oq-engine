@@ -1896,7 +1896,9 @@ class LogicTreeProcessorTestCase(unittest.TestCase):
         cfg = helpers.get_data_path('classical_job.ini')
         job = helpers.get_hazard_job(cfg)
 
-        self.proc = logictree.LogicTreeProcessor(job.hazard_calculation.id)
+        self.proc = logictree.get_logic_tree_processor(
+            job.hazard_calculation.id
+        )
 
     def test_sample_source_model(self):
         sm_name, branch_ids = self.proc.sample_source_model_logictree(42)
@@ -1962,7 +1964,9 @@ class LogicTreeProcessorParsePathTestCase(unittest.TestCase):
             self.uncertainties_applied.append(fingerprint)
         self.original_apply_uncertainty = logictree.BranchSet.apply_uncertainty
         logictree.BranchSet.apply_uncertainty = apply_uncertainty
-        self.proc = logictree.LogicTreeProcessor(job.hazard_calculation.id)
+        self.proc = logictree.get_logic_tree_processor(
+            job.hazard_calculation.id
+        )
 
     def tearDown(self):
         logictree.BranchSet.apply_uncertainty = self.original_apply_uncertainty
@@ -2009,7 +2013,7 @@ class _BaseSourceModelLogicTreeBlackboxTestCase(unittest.TestCase):
         job = helpers.get_hazard_job(cfg)
         base_path = job.hazard_calculation.base_path
 
-        proc = logictree.LogicTreeProcessor(job.hazard_calculation.id)
+        proc = logictree.get_logic_tree_processor(job.hazard_calculation.id)
 
         [branch] = proc.source_model_lt.root_branchset.branches
         all_branches = proc.source_model_lt.branches
