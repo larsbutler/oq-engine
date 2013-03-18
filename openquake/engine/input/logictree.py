@@ -29,7 +29,6 @@ from decimal import Decimal
 from lxml import etree
 
 import openquake.nrmllib
-import openquake.hazardlib
 
 from openquake.engine.db import models
 from openquake.hazardlib.gsim.base import GroundShakingIntensityModel
@@ -231,27 +230,8 @@ class BranchSet(object):
                 if value != source.tectonic_region_type:
                     return False
             elif key == 'applyToSourceType':
-                if value == 'area':
-                    if not isinstance(source,
-                                      openquake.hazardlib.source.AreaSource):
-                        return False
-                elif value == 'point':
-                    # area source extends point source
-                    if (not isinstance(
-                            source, openquake.hazardlib.source.PointSource)
-                        or isinstance(
-                            source, openquake.hazardlib.source.AreaSource)):
-                        return False
-                elif value == 'simpleFault':
-                    if not isinstance(
-                        source, openquake.hazardlib.source.SimpleFaultSource):
-                        return False
-                elif value == 'complexFault':
-                    if not isinstance(
-                        source, openquake.hazardlib.source.ComplexFaultSource):
-                        return False
-                else:
-                    raise AssertionError('unknown source type %r' % value)
+                if source.type != value:
+                    return False
             elif key == 'applyToSources':
                 if source.source_id not in value:
                     return False
@@ -282,7 +262,7 @@ class BranchSet(object):
             # source didn't pass the filter
             return
 
-        if not isinstance(source.mfd, openquake.hazardlib.mfd.TruncatedGRMFD):
+        if source.mfd.type != 'TruncatedGRMFD':
             # source's mfd is not gutenberg-richter
             return
 
