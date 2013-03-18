@@ -90,8 +90,8 @@ class Branch(object):
     :param branch_id:
         Value of ``@branchID`` attribute.
     :param weight:
-        Decimal value of weight assigned to the branch. A text node contents
-        of ``<uncertaintyWeight />`` child node.
+        Decimal value of weight assigned to the branch. The text contents of
+        ``<uncertaintyWeight />`` child node.
     :param value:
         The actual uncertainty parameter value. A text node contents
         of ``<uncertaintyModel />`` child node. Type depends
