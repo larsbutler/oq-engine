@@ -76,7 +76,9 @@ class _TesteableGMPELogicTree(logictree.GMPELogicTree):
             self.validate_filters = self.__fail
             self.validate_uncertainty_value = self.__fail
         super(_TesteableGMPELogicTree, self).__init__(
-            tectonic_region_types, content, basepath, filename, validate
+            tectonic_region_types,
+            openquake.hazardlib.gsim.get_available_gsims(),
+            content, basepath, filename, validate
         )
 
     def __fail(self, *args, **kwargs):
