@@ -28,12 +28,11 @@ import abc
 from decimal import Decimal
 from lxml import etree
 
+import openquake.hazardlib
 import openquake.nrmllib
 
 from openquake.engine.db import models
 from openquake.hazardlib.gsim.base import GroundShakingIntensityModel
-
-GSIM = openquake.hazardlib.gsim.get_available_gsims()
 
 
 class LogicTreeError(Exception):
@@ -881,13 +880,17 @@ class GMPELogicTree(BaseLogicTree):
         no unattended ones. That check is only performed if ``validate``
         parameter is set to ``True`` (see :class:`BaseLogicTree`), otherwise
         it can be an empty sequence.
+    :param dict gsim_map:
+        A mapping of GSIM names (as they are referenced in the logic tree XML)
+        to the actual class which implements the GSIM.
     """
     #: Base GMPE class (all valid GMPEs must extend it).
     BASE_GMPE = GroundShakingIntensityModel
 
-    def __init__(self, tectonic_region_types, *args, **kwargs):
+    def __init__(self, tectonic_region_types, gsim_map, *args, **kwargs):
         self.tectonic_region_types = frozenset(tectonic_region_types)
         self.defined_tectonic_region_types = set()
+        self.gsim_map = gsim_map
         super(GMPELogicTree, self).__init__(*args, **kwargs)
 
     def parse_uncertainty_value(self, node, branchset, classname):
@@ -896,7 +899,7 @@ class GMPELogicTree(BaseLogicTree):
 
         Convert gmpe import path to a gmpe object.
         """
-        return GSIM[classname]()
+        return self.gsim_map[classname]()
 
     def validate_uncertainty_value(self, node, branchset, value):
         """
@@ -906,12 +909,12 @@ class GMPELogicTree(BaseLogicTree):
         by get_available_gsims, i.e. a GSIM class.
         """
         try:
-            GSIM[value]
+            self.gsim_map[value]
         except KeyError:
             raise ValidationError(
                 node, self.filename, self.basepath,
                 'unknown class %r; available classes are: %s' % (
-                    value, list(GSIM)))
+                    value, list(self.gsim_map)))
 
     def parse_filters(self, node, uncertainty_type, filters):
         """
@@ -1006,13 +1009,15 @@ def read_logic_trees(basepath, source_model_logictree_path,
         that need to be read, parsed and saved into the database and thus
         be available for :class:`LogicTreeProcessor`.
     """
+    gsim_map = openquake.hazardlib.gsim.get_available_gsims()
+
     smlt_content = _open_file(basepath, source_model_logictree_path).read()
     smlt = SourceModelLogicTree(
         smlt_content, basepath, source_model_logictree_path, validate=True
     )
     gmpelt_content = _open_file(basepath, gmpe_logictree_path).read()
-    GMPELogicTree(smlt.tectonic_region_types, gmpelt_content, basepath,
-                  gmpe_logictree_path, validate=True)
+    GMPELogicTree(smlt.tectonic_region_types, gsim_map, gmpelt_content,
+                  basepath, gmpe_logictree_path, validate=True)
     return [branch.value for branch in smlt.root_branchset.branches]
 
 
@@ -1025,14 +1030,18 @@ class LogicTreeProcessor(object):
         Source model logic tree XML content.
     :param gmpelt_content:
         GMPE logictree XML content.
+    :param dict gsim_map:
+        A mapping of GSIM names (as they are referenced in the logic tree XML)
+        to the actual class which implements the GSIM.
     """
-    def __init__(self, smlt_content, gmpelt_content):
+    def __init__(self, smlt_content, gmpelt_content, gsim_map):
         self.source_model_lt = SourceModelLogicTree(
             smlt_content, basepath=None, filename=None, validate=False
         )
         self.gmpe_lt = GMPELogicTree(
-            tectonic_region_types=[], content=gmpelt_content,
-            basepath=None, filename=None, validate=False
+            tectonic_region_types=[], gsim_map=gsim_map,
+            content=gmpelt_content, basepath=None, filename=None,
+            validate=False
         )
 
     def sample_source_model_logictree(self, random_seed):
@@ -1164,6 +1173,8 @@ def get_logic_tree_processor(calc_id):
     :returns:
         A :class:`LogicTreeProcessor` instance.
     """
+    gsim_map = openquake.hazardlib.gsim.get_available_gsims()
+
     [smlt_input] = models.inputs4hcalc(
         calc_id, input_type='source_model_logic_tree')
     smlt_content = smlt_input.model_content.raw_content_ascii
@@ -1172,4 +1183,4 @@ def get_logic_tree_processor(calc_id):
         calc_id, input_type='gsim_logic_tree')
     gmpelt_content = gmpelt_input.model_content.raw_content_ascii
 
-    return LogicTreeProcessor(smlt_content, gmpelt_content)
+    return LogicTreeProcessor(smlt_content, gmpelt_content, gsim_map)
