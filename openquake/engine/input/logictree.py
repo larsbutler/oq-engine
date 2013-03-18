@@ -23,16 +23,16 @@ at https://blueprints.launchpad.net/openquake/+spec/openquake-logic-tree-module
 import os
 import re
 import random
-from decimal import Decimal
 import abc
 
+from decimal import Decimal
 from lxml import etree
 
 import openquake.nrmllib
 import openquake.hazardlib
-from openquake.hazardlib.gsim.base import GroundShakingIntensityModel
 
 from openquake.engine.db import models
+from openquake.hazardlib.gsim.base import GroundShakingIntensityModel
 
 GSIM = openquake.hazardlib.gsim.get_available_gsims()
 
