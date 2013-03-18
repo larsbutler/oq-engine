@@ -1709,12 +1709,6 @@ class BranchSetApplyUncertaintyTestCase(unittest.TestCase):
             rupture_mesh_spacing=1.0
         )
 
-    def test_unknown_source_type(self):
-        bs = logictree.BranchSet('maxMagGRRelative',
-                                 {'applyToSourceType': 'forest'})
-        self.assertRaises(AssertionError, bs.apply_uncertainty,
-                          -1, self.point_source)
-
     def test_relative_uncertainty(self):
         uncertainties = [('maxMagGRRelative', +1),
                          ('bGRRelative', -0.2)]
