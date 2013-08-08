@@ -138,3 +138,28 @@ def quantile_curve(curves, quantile):
 
     data = numpy.sort(arr, axis=0).transpose()
     return (1.0 - gamma) * data[:, k - 1] + gamma * data[:, k]
+
+
+def mean_poe_curve(curves, time, weights=None):
+    """
+    Compute the mean or weighted mean of a set of curves containing
+    _specifically_ probabilities of exceedance. To compute, first the PoEs are
+    conerted to AFEs (annual frequencies of exceedence). Then we take the
+    mean or weighted mean of the AFEs (see :func:`mean_curve`). Then we convert
+    the AFEs back to PoEs.
+
+    :param curves:
+        Same `curves` input as :func:`mean_curve`.
+    :param float time:
+        Investigation time period, in years.
+    :param weights:
+        Same `weights` input as :func:`mean_curve`.
+    """
+    curves = numpy.array(curves)
+    # convert PoEs to AFE
+    curves_afe = (-1 / time) * numpy.log(1 - curves)
+    # compute the mean AFE
+    mean_afe = mean_curve(curves_afe, weights=weights)
+    # convert AFE back to PoEs
+    mean_poes = 1 - numpy.exp(-mean_afe * time)
+    return mean_poes
