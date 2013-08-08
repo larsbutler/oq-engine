@@ -28,14 +28,14 @@ def mean_curve(curves, weights=None):
     Compute the mean or weighted average of a set of curves.
 
     :param curves:
-        2D array-like collection of hazard curve PoE values. Each element
-        should be a sequence of PoE `float` values. Example::
+        2D array-like collection of curve values. Each element
+        should be a sequence of `float` values. Example::
 
             [[0.5, 0.4, 0.3], [0.6, 0.59, 0.1]]
 
         .. note::
-            This data represents the curves for all realizations for a given
-            site and IMT.
+            This data represents the curves, for example, for all realizations
+            for a given site and IMT.
 
     :param weights:
         List or numpy array of weights, 1 weight value for each of the input
