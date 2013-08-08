@@ -157,9 +157,9 @@ def mean_poe_curve(curves, time, weights=None):
     """
     curves = numpy.array(curves)
     # convert PoEs to AFE
-    curves_afe = (-1 / time) * numpy.log(1 - curves)
+    curves_afe = (-1.0 / time) * numpy.log(1 - curves)
     # compute the mean AFE
     mean_afe = mean_curve(curves_afe, weights=weights)
     # convert AFE back to PoEs
-    mean_poes = 1 - numpy.exp(-mean_afe * time)
+    mean_poes = 1.0 - numpy.exp(-mean_afe * time)
     return mean_poes
