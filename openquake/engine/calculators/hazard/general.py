@@ -43,6 +43,7 @@ from openquake.engine import logs
 from openquake.engine import writer
 from openquake.engine.calculators import base
 from openquake.engine.calculators.post_processing import mean_curve
+from openquake.engine.calculators.post_processing import mean_poe_curve
 from openquake.engine.calculators.post_processing import quantile_curve
 from openquake.engine.calculators.post_processing import (
     weighted_quantile_curve
@@ -1054,9 +1055,12 @@ class BaseHazardCalculator(base.Calculator):
 
                         # then means
                         if self.hc.mean_hazard_curves:
-                            m_curve = mean_curve(
-                                curves_poes, weights=curves_weights
+
+                            m_curve = mean_poe_curve(
+                                curves_poes, self.hc.investigation_time,
+                                weights=curves_weights
                             )
+
                             inserter.add(
                                 models.HazardCurveData(
                                     hazard_curve_id=container_ids['mean'],
