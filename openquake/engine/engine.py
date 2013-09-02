@@ -351,6 +351,13 @@ def create_hazard_calculation(username, params, files):
     # Load the other input files into the database.
     # This also links the inputs to the calculation via the `input2hcalc`
     # table.
+    # TODO: Move this block of code to a separate function `_load_inputs_for_hc`.
+    _load_inputs_for_hc(files, hc, owner)
+
+    return hc
+
+
+def _load_inputs_for_hc(files, hc, owner):
     for file_key, input_path in files.iteritems():
         input_type = file_key[:-5]
         get_or_create_input(input_path, input_type, owner, haz_calc_id=hc.id)
@@ -368,8 +375,6 @@ def create_hazard_calculation(username, params, files):
                 hc.owner,
                 haz_calc_id=hc.id
             )
-
-    return hc
 
 
 def _collect_source_model_paths(smlt):
@@ -754,6 +759,7 @@ def haz_job_from_file(cfg_file_path, username, log_level, exports):
     calculation = create_hazard_calculation(
         username, params, files
     )
+    # TODO: call `_load_inputs_for_hc` here
     job.hazard_calculation = calculation
     job.save()
 
@@ -763,6 +769,54 @@ def haz_job_from_file(cfg_file_path, username, log_level, exports):
         raise RuntimeError(error_message)
 
     return job
+
+
+def import_hazard_calculation(cfg_file, username):
+    job = prepare_job(user_name=username)
+
+    params, files = parse_config(cfg_file)
+    # TODO: if `create_hazard_calculation` is refactored, we don't
+    # TODO: need to pass `files` anymore
+    calc = create_hazard_calculation(username, params, files)
+    # TODO: mark calc.imported = True
+    job.hazard_calculation = calc
+    job.save()
+
+    return job
+
+
+def import_hazard_result(result_file, hc_id):
+    """
+    Import a hazard result and associate it with the given hazard calculation
+    (``hc_id``).
+    """
+    import nose; nose.tools.set_trace()
+    # TODO:
+    # read the file
+    # determine artifact type
+    # parse it
+    # create db records
+    # mark output record as `imported=True`
+    # populate db
+    # link to `hc_id`
+
+
+def _get_haz_result_type(fh):
+    pass
+    # read the first part of the `fh` and determine
+    # which type of NRML artifact it is
+    # then return that type ('hazard_curve', 'hazard_map', etc.)
+    # TODO: use `nrmllib.iterparse_tree` to read the file
+    tree = nrmllib.iterparse_tree(fh)
+    nrml_elem, haz_elem = tree.next(), tree.next()
+    fh.seek(0)
+    # TODO: write generic nrmllib parser which detects the artifact type
+    types = [
+        ('hazardCurve', 'hazard_curve'),
+        ('hazardMap', 'hazard_map'),
+        # TODO: add other types
+    ]
+
 
 
 def list_hazard_outputs(hc_id):

@@ -231,19 +231,31 @@ def set_up_arg_parser():
               'desired output format. Defaults to "xml".')
     )
 
-    export_grp = parser.add_argument_group('Import')
-    export_grp.add_argument(
+    import_grp = parser.add_argument_group('Import')
+    import_grp.add_argument(
+        '--import-hazard-calculation', '--ihc',
+        help='Import a hazard calculation profile from a job.ini file',
+        metavar='CONFIG_FILE',
+    )
+    import_grp.add_argument(
+        '--import-hazard-result', '--ihr',
+        help=('Import a hazard result and attach it to the specified hazard '
+              'calculation'),
+        nargs=2,
+        metavar=('RESULT_FILE', 'HAZARD_CALCULATION_ID'),
+    )
+    import_grp.add_argument(
         '--load-gmf',
         help=('Load gmf from a file. Only single-source gmf are supported '
               'currently. The file can be xml or tab-separated.'),
         metavar='GMF_FILE',
     )
-    export_grp.add_argument(
+    import_grp.add_argument(
         '--load-curve',
         help=('Load hazard curves from an XML file.'),
         metavar='CURVE_FILE',
     )
-    export_grp.add_argument(
+    import_grp.add_argument(
         '--list-imported-outputs', action='store_true',
         help=('List outputs which were imported from a file, not calculated '
               'from a job'))
@@ -307,6 +319,8 @@ def _print_calcs_summary(calcs):
         List of :class:`openquake.engine.db.models.HazardCalculation` or
         :class:`openquake.engine.db.models.RiskCalculation` objects.
     """
+    # TODO: add special treatment for imported hazard jobs
+    # TODO: currently, they show up as `failed`... not good
     if len(calcs) == 0:
         print 'None'
     else:
@@ -492,6 +506,13 @@ def main():
         del_risk_calc(args.delete_risk_calculation, args.yes)
 
     # import
+    elif args.import_hazard_calculation is not None:
+        with open(abspath(expanduser(args.import_hazard_calculation))) as fh:
+            engine.import_hazard_calculation(fh, getpass.getuser())
+    elif args.import_hazard_result is not None:
+        result_file, hc_id = args.import_hazard_result
+        with open(abspath(expanduser(result_file))) as fh:
+            engine.import_hazard_result(fh, int(hc_id))
     elif args.load_gmf is not None:
         with open(args.load_gmf) as f:
             out, hc = import_gmf_scenario(f)
