@@ -691,6 +691,7 @@ class HazardCalculation(djm.Model):
     Parameters needed to run a Hazard job.
     '''
     owner = djm.ForeignKey('OqUser')
+    from_import = djm.BooleanField(default=False)
     # Contains the absolute path to the directory containing the job config
     # file.
     base_path = djm.TextField()
@@ -1490,6 +1491,7 @@ class Output(djm.Model):
 
     owner = djm.ForeignKey('OqUser')
     oq_job = djm.ForeignKey('OqJob')  # nullable in the case of an output
+    from_import = djm.BooleanField(default=False)
     # coming from an external source, with no job associated
     display_name = djm.TextField()
     HAZARD_OUTPUT_TYPE_CHOICES = (

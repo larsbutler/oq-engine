@@ -240,6 +240,9 @@ CREATE TABLE uiapi.hazard_calculation (
     -- calculation modes.
     id SERIAL PRIMARY KEY,
     owner_id INTEGER NOT NULL,
+    -- TRUE if this calculation was imported, rather than executed
+    -- traditionally
+    from_import BOOLEAN NOT NULL DEFAULT FALSE,
     -- Contains the absolute path to the directory containing the job config
     -- file
     base_path VARCHAR NOT NULL,
@@ -401,6 +404,9 @@ CREATE TABLE uiapi.output (
     id SERIAL PRIMARY KEY,
     owner_id INTEGER NOT NULL,
     oq_job_id INTEGER,
+    -- TRUE if this output was imported, rather than computed
+    -- traditionally
+    from_import BOOLEAN NOT NULL DEFAULT FALSE,
     -- The full path of the output file on the server, optional and only set
     -- for outputs with NRML/XML files.
     display_name VARCHAR NOT NULL,
