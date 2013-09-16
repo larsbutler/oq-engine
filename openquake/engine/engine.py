@@ -780,6 +780,11 @@ def import_hazard_calculation(cfg_file, username):
     calc = create_hazard_calculation(username, params, files)
     # TODO: mark calc.imported = True
     job.hazard_calculation = calc
+    calc.from_import = True
+    calc.save()
+    # TODO: mark calc.imported = True
+    job.hazard_calculation = calc
+    job.status = 'complete'
     job.save()
 
     return job
