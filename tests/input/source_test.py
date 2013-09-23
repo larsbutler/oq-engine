@@ -462,7 +462,7 @@ class SourceDBWriterTestCase(unittest.TestCase):
         )
 
         parsed_sources = list(
-            models.ParsedSource.objects.filter(input=inp.id).order_by('id')
+            models.ParsedSource.objects.filter(oqinput=inp.id).order_by('id')
         )
 
         # compare pristine nrml sources to those stored in pickled form in the

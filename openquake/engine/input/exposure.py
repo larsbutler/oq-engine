@@ -75,7 +75,7 @@ class ExposureDBWriter(object):
 
         if not self.model:
             self.model = models.ExposureModel.objects.create(
-                input=self.exposure_input,
+                oqinput=self.exposure_input,
                 name=values["exposureID"],
                 description=values.get("description"),
                 taxonomy_source=values.get("taxonomySource"),

@@ -533,7 +533,7 @@ class SourceDBWriter(object):
 
         for src in self.source_model:
             ps = models.ParsedSource(
-                input=self.inp, source_type=_source_type(src), nrml=src
+                oqinput=self.inp, source_type=_source_type(src), nrml=src
             )
             ps.save()
 
@@ -571,7 +571,7 @@ class RuptureDBWriter(object):
             raise TypeError(
                 'Expected Simple or Complex FaultRuptureModel, got %r' % src)
         models.ParsedRupture(
-            input=self.inp, rupture_type=rupture_type, nrml=src).save()
+            oqinput=self.inp, rupture_type=rupture_type, nrml=src).save()
 
 
 def area_source_to_point_sources(area_src, area_src_disc):

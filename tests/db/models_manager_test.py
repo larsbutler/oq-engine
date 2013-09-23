@@ -158,7 +158,15 @@ class AssetManagerTestCase(unittest.TestCase):
                   taxonomy = %s AND
                   ST_COVERS(ST_GeographyFromText(%s), site) AND
                   occupants_cond
-            GROUP BY riski.exposure_data.id
+            GROUP BY
+                riski.exposure_data.id,
+                riski.exposure_data.exposure_model_id,
+                riski.exposure_data.asset_ref,
+                riski.exposure_data.taxonomy,
+                riski.exposure_data.site,
+                riski.exposure_data.number_of_units,
+                riski.exposure_data.area
+
             ORDER BY ST_X(geometry(site)), ST_Y(geometry(site))
             LIMIT %s OFFSET %s
             """, query)

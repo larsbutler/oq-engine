@@ -80,7 +80,7 @@ class ClassicalHazardCalculatorTestCase(unittest.TestCase):
         [source] = models.inputs4hcalc(
             self.job.hazard_calculation.id, input_type='source')
 
-        parsed_sources = models.ParsedSource.objects.filter(input=source)
+        parsed_sources = models.ParsedSource.objects.filter(oqinput=source)
         # This source model contains 118 sources:
         self.assertEqual(118, len(parsed_sources))
 
@@ -109,7 +109,7 @@ class ClassicalHazardCalculatorTestCase(unittest.TestCase):
         # Okay, it's all good. Now check the count of the site model records.
         [site_model_inp] = models.inputs4hcalc(
             self.job.hazard_calculation.id, input_type='site_model')
-        sm_nodes = models.SiteModel.objects.filter(input=site_model_inp)
+        sm_nodes = models.SiteModel.objects.filter(oqinput=site_model_inp)
 
         self.assertEqual(2601, len(sm_nodes))
 

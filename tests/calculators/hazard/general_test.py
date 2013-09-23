@@ -57,7 +57,7 @@ class StoreSiteModelTestCase(unittest.TestCase):
         ids = general.store_site_model(inp, site_model)
 
         actual_site_model = models.SiteModel.objects.filter(
-            input=inp.id).order_by('id')
+            oqinput=inp.id).order_by('id')
 
         for i, exp in enumerate(exp_site_model):
             act = actual_site_model[i]
@@ -229,7 +229,7 @@ class GetSiteModelTestCase(unittest.TestCase):
 
         # Complete the link:
         models.Input2hcalc(
-            input=site_model_inp, hazard_calculation=haz_calc).save()
+            oqinput=site_model_inp, hazard_calculation=haz_calc).save()
 
         actual_site_model = models.get_site_model(haz_calc.id)
         self.assertEqual(site_model_inp, actual_site_model)
@@ -250,9 +250,9 @@ class GetSiteModelTestCase(unittest.TestCase):
 
         # link both site models to the calculation:
         models.Input2hcalc(
-            input=site_model_inp1, hazard_calculation=haz_calc).save()
+            oqinput=site_model_inp1, hazard_calculation=haz_calc).save()
         models.Input2hcalc(
-            input=site_model_inp2, hazard_calculation=haz_calc).save()
+            oqinput=site_model_inp2, hazard_calculation=haz_calc).save()
 
         with self.assertRaises(RuntimeError) as assert_raises:
             models.get_site_model(haz_calc.id)
@@ -293,12 +293,12 @@ class ClosestSiteModelTestCase(unittest.TestCase):
         #  d        s s        d
 
         sm1 = models.SiteModel(
-            input=self.site_model_inp, vs30_type='measured', vs30=0.0000001,
+            oqinput=self.site_model_inp, vs30_type='measured', vs30=0.0000001,
             z1pt0=0.0000001, z2pt5=0.0000001, location='POINT(-1 0)'
         )
         sm1.save()
         sm2 = models.SiteModel(
-            input=self.site_model_inp, vs30_type='inferred', vs30=0.0000002,
+            oqinput=self.site_model_inp, vs30_type='inferred', vs30=0.0000002,
             z1pt0=0.0000002, z2pt5=0.0000002, location='POINT(1 0)'
         )
         sm2.save()

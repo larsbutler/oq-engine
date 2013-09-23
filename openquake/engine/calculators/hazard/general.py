@@ -85,7 +85,7 @@ def store_site_model(input_mdl, site_model_source):
                              z1pt0=node.z1pt0,
                              z2pt5=node.z2pt5,
                              location=node.wkt,
-                             input_id=input_mdl.id)
+                             oqinput_id=input_mdl.id)
             for node in parser.parse()]
     return writer.CacheInserter.saveall(data)
 
@@ -801,7 +801,7 @@ class BaseHazardCalculator(base.Calculator):
         cursor.execute("""
             INSERT INTO "%s" (lt_realization_id, parsed_source_id, is_complete)
             SELECT %%s, id, FALSE
-            FROM "%s" WHERE input_id = %%s
+            FROM "%s" WHERE oqinput_id = %%s
             ORDER BY id
             """ % (src_progress_tbl, parsed_src_tbl),
             [lt_rlz.id, hzrd_src.id])

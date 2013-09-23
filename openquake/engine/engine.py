@@ -241,20 +241,20 @@ def get_or_create_input(path, input_type, owner, name=None,
         if haz_calc_id is not None:
             i2c = models.Input2hcalc.objects.get(
                 hazard_calculation=haz_calc_id,
-                input__path=path,
-                input__input_type=input_type,
-                input__owner=owner,
+                oqinput__path=path,
+                oqinput__input_type=input_type,
+                oqinput__owner=owner,
             )
         elif risk_calc_id is not None:
             i2c = models.Input2rcalc.objects.get(
                 risk_calculation=risk_calc_id,
-                input__path=path,
-                input__input_type=input_type,
-                input__owner=owner,
+                oqinput__path=path,
+                oqinput__input_type=input_type,
+                oqinput__owner=owner,
             )
         if name is not None:
             i2c = i2c.filter(input__name=name)
-        inp = i2c.input
+        inp = i2c.oqinput
     except exceptions.ObjectDoesNotExist:
         # It doesn't exist yet. Let's create it.
         inp = create_input(path, input_type, owner, name=name)
@@ -264,12 +264,12 @@ def get_or_create_input(path, input_type, owner, name=None,
         if haz_calc_id is not None:
             hc = models.HazardCalculation.objects.get(id=haz_calc_id)
             models.Input2hcalc.objects.create(
-                input=inp, hazard_calculation=hc
+                oqinput=inp, hazard_calculation=hc
             )
         elif risk_calc_id is not None:
             rc = models.RiskCalculation.objects.get(id=risk_calc_id)
             models.Input2rcalc.objects.create(
-                input=inp, risk_calculation=rc
+                oqinput=inp, risk_calculation=rc
             )
 
     return inp

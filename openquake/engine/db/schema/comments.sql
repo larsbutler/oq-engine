@@ -45,13 +45,13 @@ COMMENT ON COLUMN admin.revision_info.last_update IS 'The date/time when the rev
 
 COMMENT ON TABLE hzrdi.parsed_source IS 'Stores parsed hazard input model sources in serialized python object tree format';
 COMMENT ON COLUMN hzrdi.parsed_source.nrml IS 'NRML object representing the source';
-COMMENT ON COLUMN hzrdi.parsed_source.input_id IS 'The foreign key to the associated input model file';
+COMMENT ON COLUMN hzrdi.parsed_source.oqinput_id IS 'The foreign key to the associated input model file';
 COMMENT ON COLUMN hzrdi.parsed_source.source_type IS 'The source''s seismic input type: can be one of: area, point, complex or simple.';
 
 
 COMMENT ON TABLE hzrdi.parsed_rupture_model IS 'Stores parsed hazard rupture model in serialized python object tree format';
 COMMENT ON COLUMN hzrdi.parsed_rupture_model.nrml IS 'NRML object representing the rupture';
-COMMENT ON COLUMN hzrdi.parsed_rupture_model.input_id IS 'The foreign key to the associated input rupture model file';
+COMMENT ON COLUMN hzrdi.parsed_rupture_model.oqinput_id IS 'The foreign key to the associated input rupture model file';
 COMMENT ON COLUMN hzrdi.parsed_rupture_model.rupture_type IS 'The rupture''s seismic input type: can be one of: complex_fault or simple_fault.';
 
 
@@ -96,7 +96,7 @@ COMMENT ON COLUMN riski.exposure_model.area_type IS 'area type. one of: aggregat
 COMMENT ON COLUMN riski.exposure_model.area_unit IS 'area unit of measure e.g. sqm';
 COMMENT ON COLUMN riski.exposure_model.category IS 'The risk category modelled';
 COMMENT ON COLUMN riski.exposure_model.description IS 'An optional description of the risk exposure model at hand';
-COMMENT ON COLUMN riski.exposure_model.input_id IS 'The foreign key to the associated input model file';
+COMMENT ON COLUMN riski.exposure_model.oqinput_id IS 'The foreign key to the associated input model file';
 
 COMMENT ON COLUMN riski.exposure_model.name IS 'The exposure model name';
 

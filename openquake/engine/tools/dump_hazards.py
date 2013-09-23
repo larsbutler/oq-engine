@@ -151,7 +151,7 @@ class HazardDumper(object):
                      join uiapi.input as input
                      on input.model_content_id = mc.id
                      join uiapi.input2hcalc h2c
-                     on h2c.input_id = input.id
+                     on h2c.oqinput_id = input.id
                      where h2c.hazard_calculation_id = %s
                      and input.input_type in ('source_model_logic_tree',
                                               'gsim_logic_tree'))
@@ -161,7 +161,7 @@ class HazardDumper(object):
         input_ids = self.curs.tuplestr(
             """select i.* from uiapi.input i
                      join uiapi.input2hcalc h2c
-                     on h2c.input_id = i.id
+                     on h2c.oqinput_id = i.id
                      where hazard_calculation_id in %s
                      and input_type in ('source_model_logic_tree',
                                         'gsim_logic_tree')""" % ids)
@@ -172,7 +172,7 @@ class HazardDumper(object):
                 self.outdir, 'uiapi.input.csv', 'w')
 
             self.curs.copy(
-                """copy (select * from uiapi.input2hcalc where input_id in %s)
+                """copy (select * from uiapi.input2hcalc where oqinput_id in %s)
                    to stdout with (format '%s')""" % (input_ids, self.format),
                 self.outdir, 'uiapi.input2hcalc.csv', 'w')
 

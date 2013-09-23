@@ -30,7 +30,7 @@ CREATE INDEX hzrdi_hazard_site_hazard_calculation_idx
 ON hzrdi.hazard_site(hazard_calculation_id);
 
 -- hzrdi.site_model
-CREATE INDEX hzrdi_site_model_input_id_idx ON hzrdi.site_model(input_id);
+CREATE INDEX hzrdi_site_model_input_id_idx ON hzrdi.site_model(oqinput_id);
 
 -- indexes for the uiapi.performance table
 CREATE INDEX uiapi_performance_oq_job_id_idx ON uiapi.performance(oq_job_id);

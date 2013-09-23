@@ -78,7 +78,7 @@ def insert_inputs(job, inputs):
         iobj = models.Input(path=imp, input_type=imt, owner=job.owner,
                             size=random.randint(1024, 16 * 1024))
         iobj.save()
-        i2j = models.Input2job(input=iobj, oq_job=job)
+        i2j = models.Input2job(oqinput=iobj, oq_job=job)
         i2j.save()
 
 

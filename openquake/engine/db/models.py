@@ -271,12 +271,19 @@ def get_closest_site_model_data(input_model, point):
     """
     query = """
     SELECT
-        hzrdi.site_model.*,
+        site_model.*,
         min(ST_Distance_Sphere(location, %s))
             AS min_distance
-    FROM hzrdi.site_model
-    WHERE input_id = %s
-    GROUP BY id
+    FROM hzrdi.site_model AS site_model
+    WHERE oqinput_id = %s
+    GROUP BY
+        id,
+        oqinput_id,
+        site_model.vs30,
+        site_model.vs30_type,
+        site_model.z1pt0,
+        site_model.z2pt5,
+        site_model.location
     ORDER BY min_distance
     LIMIT 1;"""
 
@@ -382,7 +389,7 @@ class RevisionInfo(djm.Model):
 class ParsedSource(djm.Model):
     """Stores parsed hazard input model sources in serialized python object
        tree format."""
-    input = djm.ForeignKey('Input')
+    oqinput = djm.ForeignKey('Input')
     SRC_TYPE_CHOICES = (
         (u'area', u'Area'),
         (u'point', u'Point'),
@@ -404,7 +411,7 @@ class SiteModel(djm.Model):
     Used in Hazard calculations.
     '''
 
-    input = djm.ForeignKey('Input')
+    oqinput = djm.ForeignKey('Input')
     # Average shear wave velocity for top 30 m. Units m/s.
     vs30 = djm.FloatField()
     # 'measured' or 'inferred'. Identifies if vs30 value has been measured or
@@ -430,7 +437,7 @@ class SiteModel(djm.Model):
 class ParsedRupture(djm.Model):
     """Stores parsed hazard rupture model in serialized python object
        tree format."""
-    input = djm.ForeignKey('Input')
+    oqinput = djm.ForeignKey('Input')
     RUPTURE_TYPE_CHOICES = (
         (u'complex_fault', u'Complex Fault'),
         (u'simple_fault', u'Simple Fault'),)
@@ -527,7 +534,7 @@ class Input2job(djm.Model):
     '''
     Associates input model files and jobs.
     '''
-    input = djm.ForeignKey('Input')
+    oqinput = djm.ForeignKey('Input')
     oq_job = djm.ForeignKey('OqJob')
 
     class Meta:
@@ -1424,7 +1431,7 @@ class Input2hcalc(djm.Model):
     `input` to `hazard_calculation` link table.
     '''
 
-    input = djm.ForeignKey('Input')
+    oqinput = djm.ForeignKey('Input')
     hazard_calculation = djm.ForeignKey('HazardCalculation')
 
     class Meta:
@@ -1436,7 +1443,7 @@ class Input2rcalc(djm.Model):
     `input` to `risk_calculation` link table.
     '''
 
-    input = djm.ForeignKey('Input')
+    oqinput = djm.ForeignKey('Input')
     risk_calculation = djm.ForeignKey('RiskCalculation')
 
     class Meta:
@@ -3096,7 +3103,7 @@ class ExposureModel(djm.Model):
     A risk exposure model
     '''
 
-    input = djm.OneToOneField("Input")
+    oqinput = djm.OneToOneField("Input")
     name = djm.TextField()
     description = djm.TextField(null=True)
     category = djm.TextField()
@@ -3259,7 +3266,15 @@ class AssetManager(djm.GeoManager):
                   taxonomy = %s AND
                   ST_COVERS(ST_GeographyFromText(%s), site) AND
                   {occupants_cond}
-            GROUP BY riski.exposure_data.id
+            GROUP BY
+                riski.exposure_data.id,
+                riski.exposure_data.exposure_model_id,
+                riski.exposure_data.asset_ref,
+                riski.exposure_data.taxonomy,
+                riski.exposure_data.site,
+                riski.exposure_data.number_of_units,
+                riski.exposure_data.area
+
             ORDER BY ST_X(geometry(site)), ST_Y(geometry(site))
             LIMIT %s OFFSET %s
             """.format(people_field=people_field,

@@ -77,7 +77,7 @@ CREATE TABLE admin.revision_info (
 -- Site-specific parameters for hazard calculations.
 CREATE TABLE hzrdi.site_model (
     id SERIAL PRIMARY KEY,
-    input_id INTEGER NOT NULL,
+    oqinput_id INTEGER NOT NULL,
     -- Average shear wave velocity for top 30 m. Units m/s.
     vs30 float NOT NULL CONSTRAINT site_model_vs30
         CHECK(vs30 > 0.0),
@@ -97,7 +97,7 @@ SELECT AddGeometryColumn('hzrdi', 'site_model', 'location', 4326, 'POINT', 2);
 -- Parsed sources
 CREATE TABLE hzrdi.parsed_source (
     id SERIAL PRIMARY KEY,
-    input_id INTEGER NOT NULL,
+    oqinput_id INTEGER NOT NULL,
     source_type VARCHAR NOT NULL
         CONSTRAINT enforce_source_type CHECK
         (source_type IN ('area', 'point', 'complex', 'simple', 'characteristic')),
@@ -110,7 +110,7 @@ CREATE TABLE hzrdi.parsed_source (
 -- Parsed Rupture models
 CREATE TABLE hzrdi.parsed_rupture_model (
     id SERIAL PRIMARY KEY,
-    input_id INTEGER NOT NULL,
+    oqinput_id INTEGER NOT NULL,
     rupture_type VARCHAR NOT NULL
         CONSTRAINT enforce_rupture_type CHECK
         (rupture_type IN ('complex_fault', 'simple_fault')),
@@ -312,14 +312,14 @@ SELECT AddGeometryColumn('uiapi', 'hazard_calculation', 'sites', 4326, 'MULTIPOI
 
 CREATE TABLE uiapi.input2hcalc (
     id SERIAL PRIMARY KEY,
-    input_id INTEGER NOT NULL,
+    oqinput_id INTEGER NOT NULL,
     hazard_calculation_id INTEGER NOT NULL
 ) TABLESPACE uiapi_ts;
 
 
 CREATE TABLE uiapi.input2rcalc (
     id SERIAL PRIMARY KEY,
-    input_id INTEGER NOT NULL,
+    oqinput_id INTEGER NOT NULL,
     risk_calculation_id INTEGER NOT NULL
 ) TABLESPACE uiapi_ts;
 
@@ -449,9 +449,9 @@ CREATE TABLE uiapi.error_msg (
 -- Associate inputs and jobs
 CREATE TABLE uiapi.input2job (
     id SERIAL PRIMARY KEY,
-    input_id INTEGER NOT NULL,
+    oqinput_id INTEGER NOT NULL,
     oq_job_id INTEGER NOT NULL,
-    UNIQUE (input_id, oq_job_id)
+    UNIQUE (oqinput_id, oq_job_id)
 ) TABLESPACE uiapi_ts;
 
 
@@ -934,7 +934,7 @@ CREATE TABLE riskr.dmg_dist_total (
 CREATE TABLE riski.exposure_model (
     id SERIAL PRIMARY KEY,
     -- Associates the risk exposure model with an input record
-    input_id INTEGER NOT NULL,
+    oqinput_id INTEGER NOT NULL,
     name VARCHAR NOT NULL,
     description VARCHAR,
     -- the taxonomy system used to classify the assets
@@ -1054,13 +1054,13 @@ ALTER TABLE admin.oq_user ADD CONSTRAINT admin_oq_user_organization_fk
 FOREIGN KEY (organization_id) REFERENCES admin.organization(id) ON DELETE RESTRICT;
 
 ALTER TABLE hzrdi.site_model ADD CONSTRAINT hzrdi_site_model_input_fk
-FOREIGN KEY (input_id) REFERENCES uiapi.input(id) ON DELETE RESTRICT;
+FOREIGN KEY (oqinput_id) REFERENCES uiapi.input(id) ON DELETE RESTRICT;
 
 ALTER TABLE hzrdi.parsed_source ADD CONSTRAINT hzrdi_parsed_source_input_fk
-FOREIGN KEY (input_id) REFERENCES uiapi.input(id) ON DELETE RESTRICT;
+FOREIGN KEY (oqinput_id) REFERENCES uiapi.input(id) ON DELETE RESTRICT;
 
 ALTER TABLE hzrdi.parsed_rupture_model ADD CONSTRAINT hzrdi_parsed_rupture_model_input_fk
-FOREIGN KEY (input_id) REFERENCES uiapi.input(id) ON DELETE RESTRICT;
+FOREIGN KEY (oqinput_id) REFERENCES uiapi.input(id) ON DELETE RESTRICT;
 
 ALTER TABLE uiapi.oq_job ADD CONSTRAINT uiapi_oq_job_owner_fk
 FOREIGN KEY (owner_id) REFERENCES admin.oq_user(id) ON DELETE RESTRICT;
@@ -1077,7 +1077,7 @@ ALTER TABLE uiapi.hazard_calculation ADD CONSTRAINT uiapi_hazard_calculation_own
 FOREIGN KEY (owner_id) REFERENCES admin.oq_user(id) ON DELETE RESTRICT;
 
 ALTER TABLE uiapi.input2hcalc ADD CONSTRAINT uiapi_input2hcalc_input_fk
-FOREIGN KEY (input_id) REFERENCES uiapi.input(id) ON DELETE RESTRICT;
+FOREIGN KEY (oqinput_id) REFERENCES uiapi.input(id) ON DELETE RESTRICT;
 
 ALTER TABLE uiapi.input2hcalc ADD CONSTRAINT uiapi_input2hcalc_hazard_calculation_fk
 FOREIGN KEY (hazard_calculation_id) REFERENCES uiapi.hazard_calculation(id) ON DELETE CASCADE;
@@ -1092,7 +1092,7 @@ ALTER TABLE uiapi.risk_calculation ADD CONSTRAINT uiapi_risk_calculation_input_f
 FOREIGN KEY (exposure_input_id) REFERENCES uiapi.input(id) ON DELETE RESTRICT;
 
 ALTER TABLE uiapi.input2rcalc ADD CONSTRAINT uiapi_input2rcalc_input_fk
-FOREIGN KEY (input_id) REFERENCES uiapi.input(id) ON DELETE RESTRICT;
+FOREIGN KEY (oqinput_id) REFERENCES uiapi.input(id) ON DELETE RESTRICT;
 
 ALTER TABLE uiapi.input2rcalc ADD CONSTRAINT uiapi_input2rcalc_risk_calculation_fk
 FOREIGN KEY (risk_calculation_id) REFERENCES uiapi.risk_calculation(id) ON DELETE RESTRICT;
@@ -1110,7 +1110,7 @@ ALTER TABLE uiapi.cnode_stats ADD CONSTRAINT  uiapi_cnode_stats_oq_job_fk
 FOREIGN KEY (oq_job_id) REFERENCES uiapi.oq_job(id) ON DELETE CASCADE;
 
 ALTER TABLE uiapi.input2job ADD CONSTRAINT  uiapi_input2job_input_fk
-FOREIGN KEY (input_id) REFERENCES uiapi.input(id) ON DELETE CASCADE;
+FOREIGN KEY (oqinput_id) REFERENCES uiapi.input(id) ON DELETE CASCADE;
 
 ALTER TABLE uiapi.input2job ADD CONSTRAINT  uiapi_input2job_oq_job_fk
 FOREIGN KEY (oq_job_id) REFERENCES uiapi.oq_job(id) ON DELETE CASCADE;
@@ -1137,7 +1137,7 @@ ALTER TABLE uiapi.error_msg ADD CONSTRAINT uiapi_error_msg_oq_job_fk
 FOREIGN KEY (oq_job_id) REFERENCES uiapi.oq_job(id) ON DELETE CASCADE;
 
 ALTER TABLE riski.exposure_model ADD CONSTRAINT riski_exposure_model_input_fk
-FOREIGN KEY (input_id) REFERENCES uiapi.input(id) ON DELETE RESTRICT;
+FOREIGN KEY (oqinput_id) REFERENCES uiapi.input(id) ON DELETE RESTRICT;
 
 ALTER TABLE hzrdr.hazard_map
 ADD CONSTRAINT hzrdr_hazard_map_output_fk
