@@ -1,0 +1,9 @@
+celery
+lxml
+numpy
+scipy
+shapely
+django
+setuptools
+psutil
+
